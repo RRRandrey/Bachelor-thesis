@@ -6,7 +6,7 @@
 
 
 # ======================================================
-# 1-й этап. Парсинг координат региональных столиц
+# 1-й этап. Парсинг координат региональных столиц.
 # ======================================================
 
 
@@ -67,7 +67,7 @@ for tag in soup1.find_all('div'):
 coordinates = coordinates[coordinates.index('55.75, 37.62'):coordinates.index('55.07, 32.7') + 1]
 
 
-## Необработанный список регионов и их административных центров российских регионов
+## Необработанный список регионов и их столиц
 # ======================================================
 
 capitals = []
@@ -79,7 +79,7 @@ capitals = capitals[capitals.index('Республика Адыгея'):]
 capitals = capitals[: capitals.index('Салехард') + 1]
 
 
-## Обработанный список российских регионов и их административных центров
+## Обработанный список российских регионов и их столиц
 # ======================================================
 
 for i in capitals:
@@ -90,20 +90,164 @@ r = re.compile('[^0-9]+')
 capitals = list(filter(r.match, capitals))
 
 
-## Разделение списка на регионы и их административные центры
+## Разделение списка на регионы и их столицы
 # ======================================================
 
-Region = []
-Capitals = []
+region = []
+capitals = []
 
 for i in range(0, len(capitals)):
   if i == 0 or i % 2 == 0:
-    Region.append(capitals[i])
+    region.append(capitals[i])
   else:
-    Capitals.append(capitals[i])
+    capitals.append(capitals[i])
 
 
 # ======================================================
 # 2-й этап. Создание датафреймов.
 # ======================================================
 
+
+## Датафреймы
+# ======================================================
+
+regions_cities = pd.DataFrame({'region' : region, 'city' : capitals})
+cities_coordinates = pd.DataFrame({'city' : cities, 'coordinates' : coordinates})
+
+
+## Объединение датафреймов и преобразование столбца с координатами
+# ======================================================
+
+data = pd.merge(regions_cities, cities_coordinates, how = 'left', on = 'city')
+data[['latitude', 'longitude']] = data.coordinates.str.split(',', expand = True)
+
+data = data.drop('coordinates', axis = 1)
+
+
+## Замена на то, как в Росстате
+# ======================================================
+
+data['region'] = data['region'].replace(['Москва', 'Санкт-Петербург', 'Республика Тыва (Тува)', 
+                                         'Чувашская Республика — Чувашия', 
+                                         'Республика Северная Осетия — Алания', 'Республика Татарстан (Татарстан)'], 
+                                         ['г. Москва', 'г. Санкт-Петербург', 'Республика Тыва', 
+                                         'Чувашская Республика', 'Республика Северная Осетия – Алания', 'Республика Татарстан'])
+
+
+## Массив данных с правильным порядком
+# ======================================================
+
+total_df = pd.read_excel('/C:Users/Ryan_Gosling/Downloads/df_no_fdi_76.xlsx')
+total_df = total_df.drop_duplicates(subset=["region"])
+total_df = total_df.drop(['year', 'grp', 'rd', 'capital', 'labor', 
+                          'humcap', 'fdi', 'export', 'import'], axis = 1)
+
+
+## Координаты регионов в правильном порядке
+# ======================================================
+
+data_with_coordinates = pd.merge(total_df, data, how = 'left', on = 'region')
+data_with_coordinates['latitude'] = data_with_coordinates['latitude'].astype('float64')
+data_with_coordinates['longitude'] = data_with_coordinates['longitude'].astype('float64')
+data_with_coordinates
+
+
+## Массив данных без Санкт-Петербурга и Москвы
+# ======================================================
+
+data_with_coordinates_robust = data_with_coordinates[(data_with_coordinates['region'] != 'г. Москва') & (data_with_coordinates['region'] != 'г. Санкт-Петербург')].reset_index(drop = True)
+data_with_coordinates_robust
+
+
+# ======================================================
+# 3-й этап. Применение формулы хаверсина.
+# ======================================================
+
+
+## Вычисление расстояний и добавление их в матрицу
+# ======================================================
+
+sp_weight_matrix = []
+R = 6371 # km
+
+for i in range(0, len(data_with_coordinates)):
+  list_of_dist = []
+  for j in range(0, len(data_with_coordinates)):
+
+    phi_i = data_with_coordinates['latitude'][i]
+    phi_j = data_with_coordinates['latitude'][j]
+    lambda_i = data_with_coordinates['longitude'][i]
+    lambda_j = data_with_coordinates['longitude'][j]
+
+    if i == j:
+      d = 0
+    else:
+      d = 2 * R * asin(sqrt((sin((phi_i - phi_j)/2))**2 + cos(phi_j) * cos(phi_i) * (sin((lambda_j - lambda_i)/2))**2))
+    if d == 0:
+      w = 0
+    else:
+      w = 1/d
+    list_of_dist.append(w)
+
+  sp_weight_matrix.append(list_of_dist)
+
+sp_weight_matrix = np.array(sp_weight_matrix)
+
+
+## Нормализация по строкам
+# ======================================================
+
+sp_weight_matrix_norm = normalize(sp_weight_matrix, axis= 1 , norm='l1')
+sp_weight_matrix_norm
+sp_weight_matrix_norm.shape
+
+
+## Экспорт в R
+# ======================================================
+
+Weights_from_python = pd.DataFrame(data=sp_weight_matrix_norm)
+Weights_from_python.to_excel(r'/C:Users/Ryan_Gosling/Downloads/Weights_from_python.xlsx')
+
+
+## Вычисление расстояний и добавление их в матрицу (без СПб и МСК)
+# ======================================================
+
+sp_weight_matrix_robust = []
+R = 6371 # km
+
+for i in range(0, len(data_with_coordinates_robust)):
+  list_of_dist = []
+  for j in range(0, len(data_with_coordinates_robust)):
+
+    phi_i = data_with_coordinates_robust['latitude'][i]
+    phi_j = data_with_coordinates_robust['latitude'][j]
+    lambda_i = data_with_coordinates_robust['longitude'][i]
+    lambda_j = data_with_coordinates_robust['longitude'][j]
+
+    if i == j:
+      d = 0
+    else:
+      d = 2 * R * asin(sqrt((sin((phi_i - phi_j)/2))**2 + cos(phi_j) * cos(phi_i) * (sin((lambda_j - lambda_i)/2))**2))
+    if d == 0:
+      w = 0
+    else:
+      w = 1/d
+    list_of_dist.append(w)
+
+  sp_weight_matrix_robust.append(list_of_dist)
+
+sp_weight_matrix_robust = np.array(sp_weight_matrix_robust)
+
+
+## Нормализация по строкам
+# ======================================================
+
+sp_weight_matrix_robust_norm = normalize(sp_weight_matrix_robust, axis= 1 , norm='l1')
+sp_weight_matrix_robust_norm
+sp_weight_matrix_robust_norm.shape
+
+## Экспорт в R
+# ======================================================
+
+Weights_robust_from_python = pd.DataFrame(data=sp_weight_matrix_norm)
+Weights_robust_from_python.to_excel(r'/C:Users/Ryan_Gosling/Downloads/Weights_from_python.xlsx')
