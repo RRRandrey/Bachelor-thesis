@@ -1,0 +1,18 @@
+Создание матрицы обратных расстояний с помощью Python
+=================
+
+В этом файле я показываю, как построить матрицу обратных расстояний с помощью данных о координатах региональных столиц
+
+## Библиотеки
+
+Для начала загрузим все необходимые библиотеки
+
+'''py
+import numpy as np
+import pandas as pd
+import requests as rq
+import re
+from bs4 import BeautifulSoup
+from math import asin, sqrt, sin, cos
+from sklearn.preprocessing import normalize
+'''py
