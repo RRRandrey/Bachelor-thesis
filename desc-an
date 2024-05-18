@@ -93,6 +93,7 @@ desc_stat <- data_frame(total_stat$min,
 
 names(desc_stat) <- c('Мин', 'Среднее', 'СКО', 'Макс')
 
+
 ## Описательные статистики по FDI (по имеющимся годам с 2001 по 2021) —---------
 
 fdi_min <- min(fdi)
@@ -104,6 +105,7 @@ fdi_stat <- data.frame('Мин' = fdi_min,
                        'Среднее' = fdi_mean, 
                        'СКО' = fdi_sd, 
                        'Макс' = fdi_max)
+
 
 ## Объединить в одну таблицу —--------------------------------------------------
 
@@ -127,11 +129,9 @@ for_cor_an1 <- data.frame(grp, rd, capital, labor, humcap, export, import,
  c(rep('', length(grp)-length(fdi)),fdi))
 
 names(for_cor_an1) <- c('grp', 'r&d', 'capital', 
- 'labor', 'humcap', 
- 'export', 'import', 'fdi')
+                        'labor', 'humcap', 'export', 'import', 'fdi')
 
 for_cor_an1 <- filter(for_cor_an1, nchar(fdi) != 0)
-
 for_cor_an1$fdi <- as.numeric(for_cor_an1$fdi)
 
 for_cor_an2 <- data.frame(grp, rd, capital, labor, 
@@ -140,6 +140,7 @@ for_cor_an2 <- data.frame(grp, rd, capital, labor,
 names(for_cor_an2) <- c('grp', 'r&d', 'capital', 
  'labor', 'humcap', 
  'export', 'import')
+
 
 ## Написать функцию, которая выведет кор. матрицу с уровнями значимости —-------
 
@@ -215,6 +216,7 @@ correlation_matrix <- function(df, type = 'pearson', digits = 3,
   return(Rnew)
 }
 
+
 ## Применить функцию —----------------------------------------------------------
 
 cor_matrix1 <- correlation_matrix(for_cor_an1)
@@ -238,7 +240,6 @@ cor_matrix <- rbind(cor_matrix2, cor_matrix1[nrow(cor_matrix1),])
 rownames(cor_matrix)[nrow(cor_matrix)] <- 'FDI'
 
 cor_matrix <- cor_matrix %>% as.data.frame()
-
 cor_matrix$fdi <- c(rep('', ncol(cor_matrix)), 1)
 
 # Посмотреть результат
@@ -265,6 +266,7 @@ for (i in 2002:2021){
   cors <- c(cors, cor)
  
 }
+
 
 ## Визуализация —---------------------------------------------------------------
 
@@ -293,6 +295,7 @@ rus_reg_gpkg <- gadm(country = 'RUS',
 rus_reg_sf <- st_as_sf(rus_reg_gpkg) %>% 
  st_transform(crs = '+proj=longlat +lon_wrap=180')
 
+
 ## Создание массивов по которым будут строиться карты —-------------------------
 
 for_map_grp <- data_frame(region, year, grp)
@@ -306,6 +309,7 @@ for_map_rd <- for_map_rd[as.numeric(grep('2021', for_map_rd$year)),]
 
 for_map_rd <- subset(for_map_rd,
 select = c('region', 'rd'))
+
 
 ## Названия регионов в правильном формате —-------------------------------------
 
@@ -325,6 +329,7 @@ new = c('г. Москва',
         'Ненецкий автономный округ')
 
 rus_reg_sf$NL_NAME_1 <- replace(rus_reg_sf$NL_NAME_1, old, new)
+
 
 ## Объединение полигонов —------------------------------------------------------
 
@@ -353,6 +358,7 @@ rus_reg_full_rd <- full_join(rus_reg_sf,
                              for_map_rd, 
                              by = c('NL_NAME_1' = 'region'))
 
+
 ## Карта по реальному ВРП —-----------------------------------------------------
 
 ggplot(rus_reg_full_grp) +
@@ -365,6 +371,7 @@ ggplot(rus_reg_full_grp) +
   theme_void(base_size = 12) +
   theme(plot.background = element_rect(colour = 'black', linewidth = 1), 
   legend.position = c(0.15, 0.83))
+
 
 ## Карта по капиталу НИОКР —----------------------------------------------------
 
