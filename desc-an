@@ -1,0 +1,382 @@
+#===============================================================================
+############################  ОПИСАТЕЛЬНЫЙ АНАЛИЗ  #############################
+#===============================================================================
+
+
+### ПАКЕТЫ =====================================================================
+
+library(readxl)
+library(tidyverse)
+library(psych)
+library(ggcorrplot)
+library(openxlsx)
+
+library(ggplot2)
+library(sf)
+library(geodata)
+library(RColorBrewer)
+
+library(xtable)
+
+
+### ОБРАБОТАННЫЕ ДАННЫЕ ========================================================
+
+path <- 'C:/Users/Ryan_Gosling/Downloads/'
+
+setwd(path)
+
+df_no_fdi_76 <- read_excel('df_no_fdi_76.xlsx', 
+                           col_types = c('text', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric'))
+
+df_with_fdi_76 <- read_excel('df_with_fdi_76.xlsx', 
+                             col_types = c('text', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric'))
+
+df_no_fdi_74 <- read_excel('df_no_fdi_74.xlsx', 
+                           col_types = c('text', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric'))
+
+df_with_fdi_74 <- read_excel('df_with_fdi_74.xlsx', 
+                             col_types = c('text', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric')) 
+
+
+### Переменные =================================================================
+
+region <- df_no_fdi_76$region
+year <- df_no_fdi_76$year
+
+grp <- df_no_fdi_76$grp
+rd <- df_no_fdi_76$rd
+capital <- df_no_fdi_76$capital
+labor <- df_no_fdi_76$labor
+humcap <- df_no_fdi_76$humcap
+export <- df_no_fdi_76$export
+import <- df_no_fdi_76$import
+fdi <- df_with_fdi_76$fdi
+
+
+### ОПИСАТЕЛЬНЫЕ СТАТИСТИКИ ====================================================
+
+## Описательные статистики по всем переменным кроме FDI —-----------------------
+
+# Создание датафрейма
+for_desc_stat <- data.frame(grp, rd, capital, labor, humcap, export, import)
+
+# Получение статистик
+total_stat <- for_desc_stat %>% psych::describe()
+
+# Отбор ключевых для работы
+desc_stat <- data_frame(total_stat$min, 
+                        total_stat$mean, 
+                        total_stat$sd, 
+                        total_stat$max)
+
+names(desc_stat) <- c('Мин', 'Среднее', 'СКО', 'Макс')
+
+## Описательные статистики по FDI (по имеющимся годам с 2001 по 2021) —---------
+
+fdi_min <- min(fdi)
+fdi_mean <- mean(fdi)
+fdi_sd <- sd(fdi)
+fdi_max <- max(fdi)
+
+fdi_stat <- data.frame('Мин' = fdi_min, 
+                       'Среднее' = fdi_mean, 
+                       'СКО' = fdi_sd, 
+                       'Макс' = fdi_max)
+
+## Объединить в одну таблицу —--------------------------------------------------
+
+# Таблица с правильными названиями
+desc_stat <- rbind(desc_stat, fdi_stat)
+
+rownames(desc_stat) <- c('grp', 'r&d', 'capital', 
+                         'labor', 'humcap', 
+                         'export', 'import', 'fdi')
+
+# Посмотреть результат
+View(desc_stat)
+
+# Экспорт в LaTex
+xtable(desc_stat, digits = 3, type = 'latex')
+
+
+### КОРРЕЛЯЦИОННЫЙ АНАЛИЗ (по всем годам с 2001 по 2021) =======================
+
+for_cor_an1 <- data.frame(grp, rd, capital, labor, humcap, export, import, 
+ c(rep('', length(grp)-length(fdi)),fdi))
+
+names(for_cor_an1) <- c('grp', 'r&d', 'capital', 
+ 'labor', 'humcap', 
+ 'export', 'import', 'fdi')
+
+for_cor_an1 <- filter(for_cor_an1, nchar(fdi) != 0)
+
+for_cor_an1$fdi <- as.numeric(for_cor_an1$fdi)
+
+for_cor_an2 <- data.frame(grp, rd, capital, labor, 
+ humcap, export, import)
+
+names(for_cor_an2) <- c('grp', 'r&d', 'capital', 
+ 'labor', 'humcap', 
+ 'export', 'import')
+
+## Написать функцию, которая выведет кор. матрицу с уровнями значимости —-------
+
+correlation_matrix <- function(df, type = 'pearson', digits = 3, 
+                               decimal.mark = '.', use = 'all', 
+                               show_significance = TRUE, 
+                               replace_diagonal = FALSE, 
+                               replacement = ''){
+ 
+  # Проверка аргументов
+  stopifnot({
+    is.numeric(digits)
+    digits >= 0
+    use
+    %in% c('all', 'upper', 'lower')
+    is.logical(replace_diagonal)
+    is.logical(show_significance)
+    is.character(replacement)
+  })
+ 
+  # Оставить только числовые и булеан значения
+  isNumericOrBoolean = vapply(df, 
+                              function(x) is.numeric(x) | is.logical(x), 
+                              logical(1))
+ 
+  if (sum(!isNumericOrBoolean) > 0) {
+    cat('Dropping non-numeric/-boolean column(s):', 
+        paste(names(isNumericOrBoolean)[!isNumericOrBoolean], 
+              collapse = ', '), '\n\n')
+  }
+  df = df[isNumericOrBoolean]
+ 
+  # Преобразовать данные в матрицу
+  x <- as.matrix(df)
+ 
+  # Корреляции с уровнем значимости
+  correlation_matrix <- Hmisc::rcorr(x, type = )
+  R <- correlation_matrix$r 
+  p <- correlation_matrix$P 
+ 
+  # преобразуйте корреляции в определенный символьный формат
+  Rformatted = formatC(R, format = 'f', 
+                       digits = digits, 
+                       decimal.mark = decimal.mark)
+ 
+  # если есть какие-либо отрицательные числа, 
+  # мы хотим поставить пробел перед положительными, чтобы выровнять все
+  if (sum(R < 0) > 0) {
+    Rformatted = ifelse(R > 0, paste0(' ', Rformatted), Rformatted)
+  }
+ 
+  # добавим уровни значимости
+  if (show_significance) {
+    # Стандартные обозначения уровней значимости
+    stars <- ifelse(is.na(p), ' ', ifelse(p < 0.05, '* ', ' '))
+    Rformatted = paste0(Rformatted, stars)
+  }
+
+  # Новая матрица с уровнями значимости
+  Rnew <- matrix(Rformatted, ncol = ncol(x))
+  rownames(Rnew) <- colnames(x)
+  colnames(Rnew) <- paste(colnames(x), '', sep =' ')
+ 
+  # Замена нежелательных значений
+  if (use == 'upper') {
+    Rnew[lower.tri(Rnew, diag = replace_diagonal)] <- replacement
+  } else if (use == 'lower') {
+    Rnew[upper.tri(Rnew, diag = replace_diagonal)] <- replacement
+  } else if (replace_diagonal) {
+    diag(Rnew) <- replacement
+  }
+ 
+  return(Rnew)
+}
+
+## Применить функцию —----------------------------------------------------------
+
+cor_matrix1 <- correlation_matrix(for_cor_an1)
+cor_matrix2 <- correlation_matrix(for_cor_an2)
+
+# Приведение к виду нижней треугольной матрицы
+
+for (i in 1:(nrow(cor_matrix1) - 1)){
+  for (j in (1+i):ncol(cor_matrix1)){
+    cor_matrix1[i,j] <- ''
+ }
+}
+
+for (i in 1:(nrow(cor_matrix2) - 1)){
+  for (j in (1+i):ncol(cor_matrix2)){
+    cor_matrix2[i,j] <- ''
+ }
+}
+
+cor_matrix <- rbind(cor_matrix2, cor_matrix1[nrow(cor_matrix1),])
+rownames(cor_matrix)[nrow(cor_matrix)] <- 'FDI'
+
+cor_matrix <- cor_matrix %>% as.data.frame()
+
+cor_matrix$fdi <- c(rep('', ncol(cor_matrix)), 1)
+
+# Посмотреть результат
+View(cor_matrix)
+
+# Экспорт в LaTex
+xtable(cor_matrix, digits = 3, type = 'latex')
+
+
+### ДИНАМИКА ОЦЕНЕННОГО КОЭФФИЦИЕНТА КОРРЕЛЯЦИИ ПИРСОНА ========================
+
+## Создание корреляций между ВРП и НИОКР по каждому году —----------------------
+
+for_dyn_cors <- data.frame(year, grp, rd)
+names(for_dyn_cors) <- c('year', 'grp', 'rd')
+
+df <- for_dyn_cors[as.numeric(grep('2001', for_dyn_cors$year)),]
+cors <- cor(df$grp,df$rd)
+
+for (i in 2002:2021){
+ 
+  df <- for_dyn_cors[as.numeric(grep(i, for_dyn_cors$year)),]
+  cor <- cor(df$grp, df$rd)
+  cors <- c(cors, cor)
+ 
+}
+
+## Визуализация —---------------------------------------------------------------
+
+plot.ts(cors, 
+        ylab = 'Коэффициент корреляции Пирсона', 
+        xlab = '', 
+        col = 'blue', 
+        xaxp = c(2001, 2021, 22))
+
+grid(nx = NULL, ny = NULL, lty = 1, col = 'gray', lwd = 2) 
+
+axis(side = 1 , 
+     at = c(1, 5, 10, 15, 20), 
+     labels = c('2001', '2005', '2010', '2015', '2020'))
+
+
+### ПРОСТРАНСТВЕННАЯ ВИЗУАЛИЗАЦИЯ ==============================================
+
+## Создание шаблона карты России без заливки —----------------------------------
+
+rus_reg_gpkg <- gadm(country = 'RUS', 
+                     level = 1, 
+                     path = tempdir(), 
+                     version = 3.6)
+
+rus_reg_sf <- st_as_sf(rus_reg_gpkg) %>% 
+ st_transform(crs = '+proj=longlat +lon_wrap=180')
+
+## Создание массивов по которым будут строиться карты —-------------------------
+
+for_map_grp <- data_frame(region, year, grp)
+for_map_grp <- for_map_grp[as.numeric(grep('2021', for_map_grp$year)),]
+
+for_map_grp <- subset(for_map_grp, 
+ select = c('region', 'grp'))
+
+for_map_rd <- data_frame(region, year, rd)
+for_map_rd <- for_map_rd[as.numeric(grep('2021', for_map_rd$year)),]
+
+for_map_rd <- subset(for_map_rd,
+select = c('region', 'rd'))
+
+## Названия регионов в правильном формате —-------------------------------------
+
+old = c(43, 14, 25, 48, 55, 60, 24, 40, 12, 30, 80, 46)
+
+new = c('г. Москва', 
+        'г. Санкт-Петербург', 
+        'Карачаево-Черкесская Республика', 
+        'Республика Северная Осетия – Алания', 
+        'Пермский край', 
+        'Республика Саха (Якутия)', 
+        'Камчатский край', 
+        'Магаданская область',
+        'Чукотский автономный округ',
+        'Ханты-Мансийский автономный округ – Югра',
+        'Ямало-Ненецкий автономный округ',
+        'Ненецкий автономный округ')
+
+rus_reg_sf$NL_NAME_1 <- replace(rus_reg_sf$NL_NAME_1, old, new)
+
+## Объединение полигонов —------------------------------------------------------
+
+rus_reg_sf_tum <- rus_reg_sf[grep('Хант|Ямало|Тюмен', rus_reg_sf$NL_NAME_1),]
+tum_mer <- rus_reg_sf_tum %>% summarise()
+
+rus_reg_sf_tum[2,11] <- tum_mer[1,1]
+rus_reg_sf_tum <- rus_reg_sf_tum[-grep('Хант|Ямало', rus_reg_sf_tum$NL_NAME_1),]
+
+rus_reg_sf_arh <- rus_reg_sf[grep('Арх|^Ненец', rus_reg_sf$NL_NAME_1),]
+arh_mer <- rus_reg_sf_arh %>% summarise()
+
+rus_reg_sf_arh[1,11] <- arh_mer[1,1]
+rus_reg_sf_arh <- rus_reg_sf_arh[-grep('^Ненец', rus_reg_sf_arh$NL_NAME_1),]
+
+pattern = 'Хант|Нене|Тюмен|Арха'
+
+rus_reg_sf <- rus_reg_sf[-grep(pattern, rus_reg_sf$NL_NAME_1),]
+rus_reg_sf <- rbind(rus_reg_sf, rus_reg_sf_tum, rus_reg_sf_arh)
+
+rus_reg_full_grp <- full_join(rus_reg_sf, 
+                              for_map_grp, 
+                              by = c('NL_NAME_1' = 'region'))
+
+rus_reg_full_rd <- full_join(rus_reg_sf, 
+                             for_map_rd, 
+                             by = c('NL_NAME_1' = 'region'))
+
+## Карта по реальному ВРП —-----------------------------------------------------
+
+ggplot(rus_reg_full_grp) +
+  geom_sf(aes(fill = grp), colour = 'black') +
+  scale_fill_gradientn('Реальный ВРП', 
+                       colors = brewer.pal(6, 'Orrd'), 
+                       na.value = 'white', 
+                       guide = 'legend') +
+  coord_sf(crs= 'EPSG:32646') +
+  theme_void(base_size = 12) +
+  theme(plot.background = element_rect(colour = 'black', linewidth = 1), 
+  legend.position = c(0.15, 0.83))
+
+## Карта по капиталу НИОКР —----------------------------------------------------
+
+ggplot(rus_reg_full_rd) +
+  geom_sf(aes(fill = rd), colour = 'black') +
+  scale_fill_gradientn('Капитал НИОКР',
+                       colors = brewer.pal(6, 'BuPu'),
+                       na.value = 'white',
+                       guide = 'legend') +
+  coord_sf(crs= 'EPSG:32646') +
+  theme_void(base_size = 12) +
+  theme(plot.background = element_rect(colour = 'black', linewidth = 1),
+  legend.position = c(0.15, 0.83))
+
+rm(list = ls())
