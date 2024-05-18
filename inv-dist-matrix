@@ -137,7 +137,7 @@ data['region'] = data['region'].replace(['Москва', 'Санкт-Петер�
 ## Массив данных с правильным порядком
 # ======================================================
 
-total_df = pd.read_excel('/C:Users/Ryan_Gosling/Downloads/df_no_fdi_76.xlsx')
+total_df = pd.read_excel('C:/Users/Ryan_Gosling/Downloads/df_no_fdi_76.xlsx')
 total_df = total_df.drop_duplicates(subset=["region"])
 total_df = total_df.drop(['year', 'grp', 'rd', 'capital', 'labor', 
                           'humcap', 'fdi', 'export', 'import'], axis = 1)
@@ -206,7 +206,7 @@ sp_weight_matrix_norm.shape
 # ======================================================
 
 Weights_from_python = pd.DataFrame(data=sp_weight_matrix_norm)
-Weights_from_python.to_excel(r'/C:Users/Ryan_Gosling/Downloads/Weights_from_python.xlsx')
+Weights_from_python.to_excel(r'C:/Users/Ryan_Gosling/Downloads/Weights_from_python.xlsx')
 
 
 ## Вычисление расстояний и добавление их в матрицу (без СПб и МСК)
@@ -250,4 +250,4 @@ sp_weight_matrix_robust_norm.shape
 # ======================================================
 
 Weights_robust_from_python = pd.DataFrame(data=sp_weight_matrix_norm)
-Weights_robust_from_python.to_excel(r'/C:Users/Ryan_Gosling/Downloads/Weights_from_python.xlsx')
+Weights_robust_from_python.to_excel(r'C:/Users/Ryan_Gosling/Downloads/Weights_from_python.xlsx')
