@@ -10,6 +10,7 @@ library(SDPDmod)
 
 library(modelsummary)
 
+
 ### Обработанные данные ========================================================
 
 path <- 'C:/Users/Администратор/Downloads/'
@@ -56,11 +57,11 @@ df_with_fdi_74 <- read_excel('df_with_fdi_74.xlsx',
 ## Матрицы обратных расстояний -------------------------------------------------
 
 # Пространственные веса, рассчитанные в Python
-inv_dist_matrix <- read_excel("Weights_from_python.xlsx", 
-                              range = "B1:BY77") %>% as.matrix()
+inv_dist_matrix <- read_excel('Weights_from_python.xlsx', 
+                              range = 'B1:BY77') %>% as.matrix()
 
-inv_dist_matrix_rob <- read_excel("Weights_rob_from_python.xlsx", 
-                                  range = "B1:BW75") %>% as.matrix()
+inv_dist_matrix_rob <- read_excel('Weights_rob_from_python.xlsx', 
+                                  range = 'B1:BW75') %>% as.matrix()
 
 
 ## Функция выдающая результаты -------------------------------------------------
@@ -78,7 +79,6 @@ get_res <- function(mod, data, names){
                    2 * pnorm(abs(mod$rho / mod$rho.se), lower.tail = FALSE))
  
   names(rho) <- c('term', 'estimate', 'std.error', 't-value', 'p.value')
- 
   res <- merge(x = rho, y = res, all = TRUE)
   rownames(res) <- NULL
  
@@ -87,14 +87,12 @@ get_res <- function(mod, data, names){
   obs <- nrow(data)
  
   res <- list(tidy = res, 
-  glance = data.frame("Наблюдений" = obs, 
-                      "Log-likelihood" = round(logl, 4), 
-                      "AIC" = 2*k - 2*logl,
-                      "BIC" = k*(log(obs)) - 2*logl))
+  glance = data.frame('Наблюдений' = obs, 
+                      'Log-likelihood' = round(logl, 4), 
+                      'AIC' = 2*k - 2*logl,
+                      'BIC' = k*(log(obs)) - 2*logl))
  
-  class(res) <- "modelsummary_list"
- 
- 
+  class(res) <- 'modelsummary_list'
   return(res)
 }
 
@@ -116,9 +114,9 @@ formula_no_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) +
 sdm1 <- SDPDm(formula = formula_no_fdi, 
               data = df_no_fdi_76, 
               W = inv_dist_matrix,
-              index = c("region", "year"),
-              model = "sdm",
-              effect = "twoways",
+              index = c('region', 'year'),
+              model = 'sdm',
+              effect = 'twoways',
               LYtrans = TRUE)
 summary(sdm1)
 
@@ -151,9 +149,9 @@ formula_with_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) +
 sdm2 <- SDPDm(formula = formula_with_fdi, 
               data = df_with_fdi_76, 
               W = inv_dist_matrix,
-              index = c("region", "year"),
-              model = "sdm",
-              effect = "twoways",
+              index = c('region', 'year'),
+              model = 'sdm',
+              effect = 'twoways',
               LYtrans = TRUE)
 summary(sdm2)
 
@@ -185,9 +183,9 @@ formula_no_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) +
 sdm3 <- SDPDm(formula = formula_no_fdi, 
               data = df_no_fdi_74, 
               W = inv_dist_matrix_rob,
-              index = c("Region", "Year"),
-              model = "sdm",
-              effect = "twoways",
+              index = c('region', 'year'),
+              model = 'sdm',
+              effect = 'twoways',
               LYtrans = TRUE)
 summary(sdm3)
 
@@ -213,9 +211,9 @@ formula_with_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) +
 sdm4 <- SDPDm(formula = formula_with_fdi, 
               data = df_with_fdi_74, 
               W = inv_dist_matrix_rob,
-              index = c("Region", "Year"),
-              model = "sdm",
-              effect = "twoways",
+              index = c('region', 'year'),
+              model = 'sdm',
+              effect = 'twoways',
               LYtrans = TRUE)
 summary(sdm4)
 
@@ -236,16 +234,16 @@ modelsummary(models_sdm_inv_di,
              output = 'latex',
              stars = TRUE,
              title = 'Пространственная модель Дарбина. 
-             Метод оценки - двухшаговый ММП',
+             Метод оценки - квази-ММП',
              coef_map = c('log(R&D)', 
-                          'log(capital)', 
-                          'log(labor)', 
-                          'humcap', 
-                          'log(export)', 
-                          'log(import)', 
+                          'log(Capital)', 
+                          'log(Labor)', 
+                          'HumCap', 
+                          'log(Export)', 
+                          'log(Import)', 
                           'log(FDI)', 
                           'SpL.log(R&D)', 
-                          'SpL.log(grp)'))
+                          'SpL.log(GRP)'))
 
 
 
@@ -264,12 +262,11 @@ get_sdm_effects <- function(model){
  names(effects_res) <- c('term', 'estimate', 'std.error', 't-value', 'p.value')
  rownames(effects_res) <- NULL
  
- 
  effects_res <- list(tidy = effects_res)
- class(effects_res) <- "modelsummary_list"
- 
+ class(effects_res) <- 'modelsummary_list'
  return(effects_res)
 }
+
 
 effects_sdm1 <- get_sdm_effects(sdm1)
 effects_sdm2 <- get_sdm_effects(sdm2)
@@ -284,23 +281,27 @@ models_sdm_eff_inv_di[['(3)']] <- effects_sdm3
 models_sdm_eff_inv_di[['(4)']] <- effects_sdm4
 
 modelsummary(models_sdm_eff_inv_di, 
- output = "latex",
- stars = TRUE,
- title = "Прямые и косвенные эффекты лог-капитала НИОКР 
- на лог-реальный ВРП в пространственной модели Дарбина.")
+             output = 'latex',
+             stars = TRUE,
+             title = 'Прямые и косвенные эффекты лог-капитала НИОКР 
+             на лог-реальный ВРП в пространственной модели Дарбина.')
+
+
 
 ### СПЕЦИФИКАЦИИ С МАТРИЦЕЙ ОБЩИХ ГРАНИЦ =======================================
 
 # Пространственные веса, рассчитанные в R ранее
-contig_matrix <- read_excel("contig_matrix.xlsx", 
- range = "B1:BY77") %>% as.matrix()
+contig_matrix <- read_excel('contig_matrix.xlsx', 
+                            range = 'B1:BY77') %>% as.matrix()
 
 # Пространственные веса (без СПб и Москвы), рассчитанные в Python
-contig_matrix_rob <- read_excel("contig_matrix_rob.xlsx", 
- range = "B1:BW75") %>% as.matrix()
+contig_matrix_rob <- read_excel('contig_matrix_rob.xlsx', 
+                                range = 'B1:BW75') %>% as.matrix()
 
 contig_matrix <- as.matrix(contig_matrix)
 contig_matrix_rob <- as.matrix(contig_matrix_rob)
+
+
 
 ## Спецификация с СПб и Москвой, но без FDI —----------------------------------
 
@@ -313,18 +314,20 @@ export_reg <- df_no_fdi_76$export_lag
 import_reg <- df_no_fdi_76$import_lag
 
 formula_no_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
- log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1)
+  log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1)
 
 sdm5 <- SDPDm(formula = formula_no_fdi, 
- data = df_no_fdi_76, 
- W = contig_matrix,
- index = c("Region", "Year"),
- model = "sdm",
- effect = "twoways",
- LYtrans = TRUE)
+              data = df_no_fdi_76, 
+              W = contig_matrix,
+              index = c('region', 'year'),
+              model = 'sdm',
+              effect = 'twoways',
+              LYtrans = TRUE)
 summary(sdm5)
 
 sdm5_results <- get_results_of_sdm(sdm5, df_no_fdi_76, names_sdm_no_fdi)
+
+
 
 ## Спецификация с СПб и Москвой и с FDI —--------------------------------------
 
@@ -338,19 +341,21 @@ import_reg <- df_with_fdi_76$import_lag
 fdi_reg <- df_with_fdi_76$FDI_lag
 
 formula_with_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
- log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
- log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
+  log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
+  log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
 
 sdm6 <- SDPDm(formula = formula_with_fdi, 
- data = df_with_fdi_76, 
- W = contig_matrix,
- index = c("Region", "Year"),
- model = "sdm",
- effect = "twoways",
- LYtrans = TRUE)
+              data = df_with_fdi_76, 
+              W = contig_matrix,
+              index = c('region', 'year'),
+              model = 'sdm',
+              effect = 'twoways',
+              LYtrans = TRUE)
 summary(sdm6)
 
 sdm6_results <- get_results_of_sdm(sdm6, df_with_fdi_76, names_sdm_with_fdi)
+
+
 
 ## Спецификация без СПб и Москвы и без FDI —-----------------------------------
 
@@ -363,18 +368,20 @@ export_reg <- df_no_fdi_74$export_lag
 import_reg <- df_no_fdi_74$import_lag
 
 formula_no_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
- log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1)
+  log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1)
 
 sdm7 <- SDPDm(formula = formula_no_fdi, 
- data = df_no_fdi_74, 
- W = contig_matrix_rob,
- index = c("Region", "Year"),
- model = "sdm",
- effect = "twoways",
- LYtrans = TRUE)
+              data = df_no_fdi_74, 
+              W = contig_matrix_rob,
+              index = c('region', 'year'),
+              model = 'sdm',
+              effect = 'twoways',
+              LYtrans = TRUE)
 summary(sdm7)
 
 sdm7_results <- get_results_of_sdm(sdm7, df_no_fdi_74, names_sdm_no_fdi)
+
+
 
 ## Спецификация без СПб и Москвы, но с FDI —-----------------------------------
 
@@ -388,19 +395,21 @@ import_reg <- df_with_fdi_74$import_lag
 fdi_reg <- df_with_fdi_74$FDI_lag
 
 formula_with_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
- log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
- log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
+  log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
+  log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
 
 sdm8 <- SDPDm(formula = formula_with_fdi, 
- data = df_with_fdi_74, 
- W = contig_matrix_rob,
- index = c("Region", "Year"),
- model = "sdm",
- effect = "twoways",
- LYtrans = TRUE)
+              data = df_with_fdi_74, 
+              W = contig_matrix_rob,
+              index = c('region', 'year'),
+              model = 'sdm',
+              effect = 'twoways',
+              LYtrans = TRUE)
 summary(sdm8)
 
 sdm8_results <- get_results_of_sdm(sdm8, df_with_fdi_74, names_sdm_with_fdi)
+
+
 
 ## Представление результатов в одной таблице —---------------------------------
 
@@ -412,19 +421,21 @@ models_sdm_cont[['(7)']] <- sdm7_results
 models_sdm_cont[['(8)']] <- sdm8_results
 
 modelsummary(models_sdm_cont, 
- output = "latex",
- stars = TRUE,
- title = "Пространственная модель Дарбина. 
- Метод оценки - двухшаговый ММП",
- coef_map = c('log(R&D)', 
- 'log(capital)', 
- 'log(labor)', 
- 'humcap', 
- 'log(export)', 
- 'log(import)', 
- 'log(FDI)', 
- 'SpL.log(R&D)', 
- 'SpL.log(grp)'))
+             output = 'latex',
+             stars = TRUE,
+             title = 'Пространственная модель Дарбина. 
+             Метод оценки - двухшаговый ММП',
+             coef_map = c('log(R&D)', 
+                          'log(Capital)', 
+                          'log(Labor)', 
+                          'HumCap', 
+                          'log(Export)', 
+                          'log(Import)', 
+                          'log(FDI)', 
+                          'SpL.log(R&D)', 
+                          'SpL.log(GRP)'))
+
+
 
 ## Прямые и косвенные эффекты в модели Дарбина —-------------------------------
 
@@ -441,7 +452,7 @@ models_sdm_eff_cont[['(7)']] <- effects_sdm7
 models_sdm_eff_cont[['(8)']] <- effects_sdm8
 
 modelsummary(models_sdm_eff_cont, 
- output = "latex",
- stars = TRUE,
- title = "Прямые и косвенные эффекты лог-капитала НИОКР 
- на лог-реальный ВРП в пространственной модели Дарбина.")
+             output = 'latex',
+             stars = TRUE,
+             title = 'Прямые и косвенные эффекты лог-капитала НИОКР 
+             на лог-реальный ВРП в пространственной модели Дарбина.')
