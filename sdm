@@ -16,86 +16,91 @@ path <- 'C:/Users/Администратор/Downloads/'
 
 setwd(path)
 
-df_no_fdi_76 <- read_excel("df_no_fdi_76.xlsx", 
- col_types = c('text', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric'))
+df_no_fdi_76 <- read_excel('df_no_fdi_76.xlsx', 
+                           col_types = c('text', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric'))
 
-df_with_fdi_76 <- read_excel("df_with_fdi_76.xlsx", 
- col_types = c('text', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric'))
+df_with_fdi_76 <- read_excel('df_with_fdi_76.xlsx', 
+                             col_types = c('text', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric'))
 
-df_no_fdi_74 <- read_excel("df_no_fdi_74.xlsx", 
- col_types = c('text', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric'))
+df_no_fdi_74 <- read_excel('df_no_fdi_74.xlsx', 
+                           col_types = c('text', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric'))
 
-df_with_fdi_74 <- read_excel("df_with_fdi_74.xlsx", 
- col_types = c('text', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric', 'numeric', 
- 'numeric', 'numeric')) 
+df_with_fdi_74 <- read_excel('df_with_fdi_74.xlsx', 
+                             col_types = c('text', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric')) 
+
 
 ### СПЕЦИФИКАЦИИ С МАТРИЦЕЙ ОБРАТНЫХ РАССТОЯНИЙ ================================
 
-## Матрицы обратных расстояний —-----------------------------------------------
+## Матрицы обратных расстояний -------------------------------------------------
 
 # Пространственные веса, рассчитанные в Python
 inv_dist_matrix <- read_excel("Weights_from_python.xlsx", 
- range = "B1:BY77") %>% as.matrix()
+                              range = "B1:BY77") %>% as.matrix()
 
 inv_dist_matrix_rob <- read_excel("Weights_rob_from_python.xlsx", 
- range = "B1:BW75") %>% as.matrix()
+                                  range = "B1:BW75") %>% as.matrix()
 
-## Спецификация с СПб и Москвой, но без FDI —----------------------------------
+
+## Функция выдающая результаты -------------------------------------------------
 
 get_res <- function(mod, data, names){
  
- res <- data.frame(names, mod$coefficients, mod$std, mod$tstat, 
- 2 * pnorm(abs(mod$coefficients / mod$std), 
- lower.tail = FALSE))
+  res <- data.frame(names, mod$coefficients, mod$std, mod$tstat, 
+                    2 * pnorm(abs(mod$coefficients / mod$std),
+                               lower.tail = FALSE))
  
- names(res) <- c('term', 'estimate', 'std.error', 't-value', 'p.value')
+  names(res) <- c('term', 'estimate', 'std.error', 't-value', 'p.value') 
+  rownames(res) <- NULL
  
- rownames(res) <- NULL
+  rho <- data.frame('SpL.log(grp)', mod$rho, mod$rho.se, mod$rho.tst, 
+                   2 * pnorm(abs(mod$rho / mod$rho.se), lower.tail = FALSE))
  
- rho <- data.frame('SpL.log(grp)', mod$rho, mod$rho.se, mod$rho.tst, 
- 2 * pnorm(abs(mod$rho / mod$rho.se), lower.tail = FALSE))
+  names(rho) <- c('term', 'estimate', 'std.error', 't-value', 'p.value')
  
- names(rho) <- c('term', 'estimate', 'std.error', 't-value', 'p.value')
+  res <- merge(x = rho, y = res, all = TRUE)
+  rownames(res) <- NULL
  
- res <- merge(x = rho, y = res, all = TRUE)
- rownames(res) <- NULL
+  k <- nrow(res)
+  logl <- mod$likl
+  obs <- nrow(data)
  
- k <- nrow(res)
- logl <- mod$likl
- obs <- nrow(data)
+  res <- list(tidy = res, 
+  glance = data.frame("Наблюдений" = obs, 
+                      "Log-likelihood" = round(logl, 4), 
+                      "AIC" = 2*k - 2*logl,
+                      "BIC" = k*(log(obs)) - 2*logl))
  
- res <- list(tidy = res, 
- glance = data.frame("Наблюдений" = obs, 
- "Log-likelihood" = round(logl, 4), 
- "AIC" = 2*k - 2*logl,
- "BIC" = k*(log(obs)) - 2*logl))
- 
- class(res) <- "modelsummary_list"
+  class(res) <- "modelsummary_list"
  
  
- return(res)
+  return(res)
 }
+
+
+
+## Спецификация с СПб и Москвой, но без FDI ------------------------------------
 
 grp_reg <- df_no_fdi_76$grp
 rd_reg <- df_no_fdi_76$rd_lag
@@ -106,33 +111,29 @@ export_reg <- df_no_fdi_76$export_lag
 import_reg <- df_no_fdi_76$import_lag
 
 formula_no_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
- log(labor_reg) + humcap_reg + export_reg + import_reg
+  log(labor_reg) + humcap_reg + export_reg + import_reg
 
 sdm1 <- SDPDm(formula = formula_no_fdi, 
- data = df_no_fdi_76, 
- W = inv_dist_matrix,
- index = c("Region", "Year"),
- model = "sdm",
- effect = "twoways",
- LYtrans = TRUE)
+              data = df_no_fdi_76, 
+              W = inv_dist_matrix,
+              index = c("region", "year"),
+              model = "sdm",
+              effect = "twoways",
+              LYtrans = TRUE)
 summary(sdm1)
 
-names_sdm_no_fdi <- c('log(R&D)', 
- 'log(capital)', 
- 'log(labor)', 
- 'humcap', 
- 'log(export)', 
- 'log(import)', 
- 'SpL.log(R&D)', 
- 'SpL.log(capital)', 
- 'SpL.log(labor)', 
- 'SpL.humcap', 
- 'SpL.log(export)', 
- 'SpL.log(import)')
+names_sdm_no_fdi <- c('log(rd)', 'log(capital)', 
+                      'log(labor)', 'humcap', 
+                      'log(export)', 'log(import)', 
+                      'SpL.log(rd)', 'SpL.log(capital)', 
+                      'SpL.log(labor)', 'SpL.humcap', 
+                      'SpL.log(export)', 'SpL.log(import)')
 
 sdm1_results <- get_results_of_sdm(sdm1, df_no_fdi_76, names_sdm_no_fdi)
 
-## Спецификация с СПб и Москвой и с FDI —--------------------------------------
+
+
+## Спецификация с СПб и Москвой и с FDI ----------------------------------------
 
 grp_reg <- df_with_fdi_76$grp
 rd_reg <- df_with_fdi_76$rd_lag
@@ -144,36 +145,31 @@ import_reg <- df_with_fdi_76$import_lag
 fdi_reg <- df_with_fdi_76$FDI_lag
 
 formula_with_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
- log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
- log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
+  log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
+  log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
 
 sdm2 <- SDPDm(formula = formula_with_fdi, 
- data = df_with_fdi_76, 
- W = inv_dist_matrix,
- index = c("Region", "Year"),
- model = "sdm",
- effect = "twoways",
- LYtrans = TRUE)
+              data = df_with_fdi_76, 
+              W = inv_dist_matrix,
+              index = c("region", "year"),
+              model = "sdm",
+              effect = "twoways",
+              LYtrans = TRUE)
 summary(sdm2)
 
-names_sdm_with_fdi <- c('log(R&D)', 
- 'log(capital)', 
- 'log(labor)', 
- 'humcap', 
- 'log(export)', 
- 'log(import)', 
- 'log(FDI)', 
- 'SpL.log(R&D)', 
- 'SpL.log(capital)', 
- 'SpL.log(labor)', 
- 'SpL.humcap', 
- 'SpL.log(export)', 
- 'SpL.log(import)', 
- 'SpL.log(FDI)')
+names_sdm_with_fdi <- c('log(rd)', 'log(capital)', 
+                        'log(labor)', 'humcap', 
+                        'log(export)', 'log(import)', 
+                        'log(fdi)', 'SpL.log(rd)', 
+                        'SpL.log(capital)', 'SpL.log(labor)', 
+                        'SpL.humcap', 'SpL.log(export)', 
+                        'SpL.log(import)', 'SpL.log(fdi)')
 
 sdm2_results <- get_results_of_sdm(sdm2, df_with_fdi_76, names_sdm_with_fdi)
 
-## Спецификация без СПб и Москвы, но с FDI —-----------------------------------
+
+
+## Спецификация без СПб и Москвы, но с FDI -------------------------------------
 
 grp_reg <- df_no_fdi_74$grp
 rd_reg <- df_no_fdi_74$rd_lag
@@ -184,20 +180,22 @@ export_reg <- df_no_fdi_74$export_lag
 import_reg <- df_no_fdi_74$import_lag
 
 formula_no_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
- log(labor_reg) + humcap_reg + export_reg + import_reg
+  log(labor_reg) + humcap_reg + export_reg + import_reg
 
 sdm3 <- SDPDm(formula = formula_no_fdi, 
- data = df_no_fdi_74, 
- W = inv_dist_matrix_rob,
- index = c("Region", "Year"),
- model = "sdm",
- effect = "twoways",
- LYtrans = TRUE)
+              data = df_no_fdi_74, 
+              W = inv_dist_matrix_rob,
+              index = c("Region", "Year"),
+              model = "sdm",
+              effect = "twoways",
+              LYtrans = TRUE)
 summary(sdm3)
 
 sdm3_results <- get_results_of_sdm(sdm3, df_no_fdi_74, names_sdm_no_fdi)
 
-## Спецификация без СПб и Москвы, но с FDI —-----------------------------------
+
+
+## Спецификация без СПб и Москвы, но с FDI -------------------------------------
 
 grp_reg <- df_with_fdi_74$grp
 rd_reg <- df_with_fdi_74$rd_lag
@@ -209,21 +207,23 @@ import_reg <- df_with_fdi_74$import_lag
 fdi_reg <- df_with_fdi_74$FDI_lag
 
 formula_with_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
- log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
- log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
+  log(labor_reg) + humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
+  log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
 
 sdm4 <- SDPDm(formula = formula_with_fdi, 
- data = df_with_fdi_74, 
- W = inv_dist_matrix_rob,
- index = c("Region", "Year"),
- model = "sdm",
- effect = "twoways",
- LYtrans = TRUE)
+              data = df_with_fdi_74, 
+              W = inv_dist_matrix_rob,
+              index = c("Region", "Year"),
+              model = "sdm",
+              effect = "twoways",
+              LYtrans = TRUE)
 summary(sdm4)
 
 sdm4_results <- get_results_of_sdm(sdm4, df_with_fdi_74, names_sdm_with_fdi)
 
-## Представление результатов в одной таблице —---------------------------------
+
+
+## Представление результатов в одной таблице -----------------------------------
 
 models_sdm_inv_di <- list()
 
@@ -233,31 +233,33 @@ models_sdm_inv_di[['(3)']] <- sdm3_results
 models_sdm_inv_di[['(4)']] <- sdm4_results
 
 modelsummary(models_sdm_inv_di, 
- output = "latex",
- stars = TRUE,
- title = "Пространственная модель Дарбина. 
- Метод оценки - двухшаговый ММП",
- coef_map = c('log(R&D)', 
- 'log(capital)', 
- 'log(labor)', 
- 'humcap', 
- 'log(export)', 
- 'log(import)', 
- 'log(FDI)', 
- 'SpL.log(R&D)', 
- 'SpL.log(grp)'))
+             output = 'latex',
+             stars = TRUE,
+             title = 'Пространственная модель Дарбина. 
+             Метод оценки - двухшаговый ММП',
+             coef_map = c('log(R&D)', 
+                          'log(capital)', 
+                          'log(labor)', 
+                          'humcap', 
+                          'log(export)', 
+                          'log(import)', 
+                          'log(FDI)', 
+                          'SpL.log(R&D)', 
+                          'SpL.log(grp)'))
 
-## Прямые и косвенные эффекты в модели Дарбина —-------------------------------
+
+
+## Прямые и косвенные эффекты в модели Дарбина ---------------------------------
 
 get_sdm_effects <- function(model){
- effects <- impactsSDPDm(model)
- effects_res <- data.frame(c("Прямой", "Косвенный", "Общий"), 
- c(effects$DIRECT.tab[1,1], effects$INDIRECT.tab[1,1], 
- effects$TOTAL.tab[1,1]), c(effects$DIRECT.tab[1,2], 
- effects$INDIRECT.tab[1,2], effects$TOTAL.tab[1,2]),
- c(effects$DIRECT.tab[1,3], effects$INDIRECT.tab[1,3], 
- effects$TOTAL.tab[1,3]), c(effects$DIRECT.tab[1,4], 
- effects$INDIRECT.tab[1,4], effects$TOTAL.tab[1,4]))
+  effs <- impactsSDPDm(model)
+  effs_res <- data.frame(c('Прямой', 'Косвенный', 'Общий'), 
+                         c(effects$DIRECT.tab[1,1], effects$INDIRECT.tab[1,1], 
+                         effects$TOTAL.tab[1,1]), c(effects$DIRECT.tab[1,2], 
+                         effects$INDIRECT.tab[1,2], effects$TOTAL.tab[1,2]),
+                         c(effects$DIRECT.tab[1,3], effects$INDIRECT.tab[1,3], 
+                         effects$TOTAL.tab[1,3]), c(effects$DIRECT.tab[1,4], 
+                         effects$INDIRECT.tab[1,4], effects$TOTAL.tab[1,4]))
  
  names(effects_res) <- c('term', 'estimate', 'std.error', 't-value', 'p.value')
  rownames(effects_res) <- NULL
