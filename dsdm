@@ -1,0 +1,523 @@
+#===============================================================================
+################# ДИНАМИЧЕСКИЕ ПРОСТРАНСТВЕННАЯ МОДЕЛЬ ДАРБИНА #################
+#===============================================================================
+
+
+### Пакеты =====================================================================
+
+
+library(readxl)
+library(tidyverse)
+library(SDPDmod)
+
+
+library(modelsummary)
+
+
+
+### Обработанные данные ========================================================
+
+
+path <- 'C:/Users/Администратор/Downloads/'
+
+setwd(path)
+
+
+df_no_fdi_76 <- read_excel('df_no_fdi_76.xlsx', 
+                           col_types = c('text', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric'))
+
+
+df_with_fdi_76 <- read_excel('df_with_fdi_76.xlsx', 
+                             col_types = c('text', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric'))
+
+
+df_no_fdi_74 <- read_excel('df_no_fdi_74.xlsx', 
+                           col_types = c('text', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric'))
+
+
+df_with_fdi_74 <- read_excel('df_with_fdi_74.xlsx', 
+                             col_types = c('text', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric')) 
+
+
+
+### СПЕЦИФИКАЦИИ С МАТРИЦЕЙ ОБРАТНЫХ РАССТОЯНИЙ ================================
+
+## Матрицы обратных расстояний -------------------------------------------------
+
+
+# Пространственные веса, рассчитанные в Python
+inv_dist_matrix <- read_excel('Weights_from_python.xlsx', 
+                                  range = 'B1:BY77') %>% as.matrix()
+
+
+inv_dist_matrix_rob <- read_excel('Weights_rob_from_python.xlsx', 
+                                      range = 'B1:BW75') %>% as.matrix()
+
+
+
+
+## Функция, которая выдаст результаты ------------------------------------------
+
+get_res_of_sdm <- function(model, data, names){
+  
+  res <- data.frame(names, model$coefficients, model$std, model$tstat, 
+                        2 * pnorm(abs(model$coefficients / model$std), 
+                                  lower.tail = FALSE))
+  
+  names(res) <- c('term', 'estimate', 'std.error', 't-value', 'p.value')
+  rownames(res) <- NULL
+  
+  rho <- data.frame('SpL.log(grp)', model$rho, model$rho.se, model$rho.tst, 
+                    2 * pnorm(abs(model$rho / model$rho.se), 
+                              lower.tail = FALSE))
+  
+  names(rho) <- c('term', 'estimate', 'std.error', 't-value', 'p.value')
+  
+  res <- merge(x = rho, y = res, all = TRUE)
+  rownames(res) <- NULL
+  
+  k <- nrow(res)
+  logl <- model$likl
+  obs <- nrow(data)
+  
+  res <- list(tidy = res, 
+                  glance = data.frame('Наблюдений' = obs, 
+                                      'Log-likelihood' = round(logl, 4), 
+                                      'AIC' = 2*k - 2*logl,
+                                      'BIC' = k*(log(obs)) - 2*logl))
+  
+  class(res) <- 'modelsummary_list'
+  return(res)
+}
+
+
+
+## Спецификация с СПб и Москвой, но без FDI ------------------------------------
+
+grp_reg      <-  df_no_fdi_76$grp
+rd_reg       <-  df_no_fdi_76$rd_l
+capital_reg  <-  df_no_fdi_76$capital_l
+labor_reg    <-  df_no_fdi_76$labor_l
+humcap_reg   <-  df_no_fdi_76$humcap_l
+export_reg   <-  df_no_fdi_76$export_l
+import_reg   <-  df_no_fdi_76$import_l
+
+formula_no_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+  humcap_reg + log(export_reg + 1) + log(import_reg + 1)
+
+dsdm1 <- SDPDm(formula = formula_no_fdi, 
+               data = df_no_fdi_76, 
+               W = inv_dist_matrix,
+               index = c('region', 'year'),
+               model = 'sdm',
+               effect = 'twoways',
+               LYtrans = TRUE,
+               dynamic = TRUE,
+               tlaginfo = list(ind = NULL, tl = TRUE, stl = TRUE))
+summary(dsdm1)
+
+names_dsdm_no_fdi <- c('L1.log(grp)', 
+                       'SpL.L1.log(grp)', 
+                       'log(R&D)', 
+                       'log(Capital)', 
+                       'log(Labor)', 
+                       'humcap', 
+                       'log(Export)', 
+                       'log(Import)', 
+                       'SpL.log(R&D)', 
+                       'SpL.log(Capital)', 
+                       'SpL.log(Labor)', 
+                       'SpL.humcap', 
+                       'SpL.log(Export)', 
+                       'SpL.log(Import)')
+
+dsdm1_res <- get_res_of_sdm(dsdm1, df_no_fdi_76, names_dsdm_no_fdi)
+
+
+## Спецификация с СПб и Москвой и с FDI ---------------------------------------
+
+
+grp_reg      <-  df_with_fdi_76$grp
+rd_reg       <-  df_with_fdi_76$rd_l
+capital_reg  <-  df_with_fdi_76$capital_l
+labor_reg    <-  df_with_fdi_76$labor_l
+humcap_reg   <-  df_with_fdi_76$humcap_l
+export_reg   <-  df_with_fdi_76$export_l
+import_reg   <-  df_with_fdi_76$import_l
+fdi_reg      <-  df_with_fdi_76$fdi_l
+
+formula_with_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
+log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
+
+dsdm2 <- SDPDm(formula = formula_with_fdi, 
+               data = df_with_fdi_76, 
+               W = inv_dist_matrix,
+               index = c('region', 'year'),
+               model = 'sdm',
+               effect = 'twoways',
+               LYtrans = TRUE,
+               dynamic = TRUE,
+               tlaginfo = list(ind = NULL, tl = TRUE, stl = TRUE))
+summary(dsdm2)
+
+names_dsdm_with_fdi <- c('L1.log(grp)', 
+                         'SpL.L1.log(grp)', 
+                         'log(R&D)',
+                         'log(Capital)', 
+                         'log(Labor)', 
+                         'humcap', 
+                         'log(Export)', 
+                         'log(Import)', 
+                         'log(FDI)', 
+                         'SpL.log(R&D)', 
+                         'SpL.log(Capital)', 
+                         'SpL.log(Labor)', 
+                         'SpL.humcap', 
+                         'SpL.log(Export)', 
+                         'SpL.log(Import)', 
+                         'SpL.log(FDI)')
+
+dsdm2_res <- get_res_of_sdm(dsdm2, df_with_fdi_76, names_dsdm_with_fdi)
+
+
+## Спецификация без СПб и Москвы и без FDI --------------------------------
+
+
+grp_reg      <-  df_no_fdi_74$grp
+rd_reg       <-  df_no_fdi_74$rd_l
+capital_reg  <-  df_no_fdi_74$capital_l
+labor_reg    <-  df_no_fdi_74$labor_l
+humcap_reg   <-  df_no_fdi_74$humcap_l
+export_reg   <-  df_no_fdi_74$export_l
+import_reg   <-  df_no_fdi_74$import_l
+
+formula_no_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+humcap_reg + log(export_reg + 1) + log(import_reg + 1)
+
+dsdm3 <- SDPDm(formula = formula_no_fdi, 
+               data = df_no_fdi_74, 
+               W = inv_dist_matrix_rob,
+               index = c('region', 'year'),
+               model = 'sdm',
+               effect = 'twoways',
+               LYtrans = TRUE,
+               dynamic = TRUE,
+               tlaginfo = list(ind = NULL, tl = TRUE, stl = TRUE))
+summary(dsdm3)
+
+dsdm3_res <- get_res_of_sdm(dsdm3, df_no_fdi_74, names_dsdm_no_fdi)
+
+
+## Спецификация без СПб и Москвы, но с FDI -----------------------------------
+
+
+grp_reg      <-  df_with_fdi_74$grp
+rd_reg       <-  df_with_fdi_74$rd_l
+capital_reg  <-  df_with_fdi_74$capital_l
+labor_reg    <-  df_with_fdi_74$labor_l
+humcap_reg   <-  df_with_fdi_74$humcap_l
+export_reg   <-  df_with_fdi_74$export_l
+import_reg   <-  df_with_fdi_74$import_l
+fdi_reg      <-  df_with_fdi_74$fdi_l
+
+formula_with_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
+log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
+
+dsdm4 <- SDPDm(formula = formula_with_fdi, 
+               data = df_with_fdi_74, 
+               W = inv_dist_matrix_rob,
+               index = c('region', 'year'),
+               model = 'sdm',
+               effect = 'twoways',
+               LYtrans = TRUE,
+               dynamic = TRUE,
+               tlaginfo = list(ind = NULL, tl = TRUE, stl = TRUE))
+summary(dsdm4)
+
+dsdm4_res <- get_res_of_sdm(dsdm4, df_with_fdi_74, names_dsdm_with_fdi)
+
+
+## Представление результатов в одной таблице ----------------------------------
+
+mod_dsdm_inv_di = list()
+
+mod_dsdm_inv_di[['(1)']] <- dsdm1_res
+mod_dsdm_inv_di[['(2)']] <- dsdm2_res
+mod_dsdm_inv_di[['(3)']] <- dsdm3_res
+mod_dsdm_inv_di[['(4)']] <- dsdm4_res
+
+
+modelsummary(mod_dsdm_inv_di, 
+             output = 'latex',
+             stars = TRUE,
+             title = 'Динамическая пространственная модель Дарбина. 
+             Метод оценки - квази-ММП.',
+             coef_map = c('L1.log(grp)', 
+                          'SpL.L1.log(grp)', 
+                          'log(R&D)', 
+                          'log(Capital)', 
+                          'log(Labor)', 
+                          'humcap', 
+                          'log(Export)', 
+                          'log(Import)', 
+                          'log(FDI)', 
+                          'SpL.log(R&D)',
+                          'SpL.log(grp)'))
+
+
+## Прямые и косвенные эффекты в динамической модели Дарбина --------------------
+
+
+get_dsdm_effects <- function(model){
+  effects <- impactsSDPDm(model)
+  
+  effs_res <- data.frame(c('Прямой', 'Косвенный', 'Общий', 
+                           'Прямой ', 'Косвенный ', 'Общий '), 
+                         c(effects$DIRECTst.tab[1,1], effects$INDIRECTst.tab[1,1], 
+                           effects$TOTALst.tab[1,1], effects$DIRECTlt.tab[1,1], 
+                           effects$INDIRECTlt.tab[1,1], effects$TOTALlt.tab[1,1]), 
+                         c(effects$DIRECTst.tab[1,2], effects$INDIRECTst.tab[1,2], 
+                           effects$TOTALst.tab[1,2], effects$DIRECTlt.tab[1,2], 
+                           effects$INDIRECTlt.tab[1,2], effects$TOTALlt.tab[1,2]),
+                         c(effects$DIRECTst.tab[1,3], effects$INDIRECTst.tab[1,3], 
+                           effects$TOTALst.tab[1,3], effects$DIRECTlt.tab[1,3], 
+                           effects$INDIRECTlt.tab[1,3], effects$TOTALlt.tab[1,3]),
+                         c(effects$DIRECTst.tab[1,4], effects$INDIRECTst.tab[1,4], 
+                           effects$TOTALst.tab[1,4], effects$DIRECTlt.tab[1,4], 
+                           effects$INDIRECTlt.tab[1,4], effects$TOTALlt.tab[1,4]))
+  
+  names(effs_res) <- c('term', 'estimate', 'std.error', 't-value', 'p.value')
+  rownames(effs_res) <- NULL
+  
+  
+  effs_res <- list(tidy = effs_res)
+  class(effs_res) <- 'modelsummary_list'
+  
+  
+  return(effs_res)
+}
+
+
+effects_dsdm1 <- get_dsdm_effects(dsdm1)
+effects_dsdm2 <- get_dsdm_effects(dsdm2)
+effects_dsdm3 <- get_dsdm_effects(dsdm3)
+effects_dsdm4 <- get_dsdm_effects(dsdm4)
+
+
+mod_dsdm_eff_inv_di = list()
+
+mod_dsdm_eff_inv_di[['(1)']] <- effects_dsdm1
+mod_dsdm_eff_inv_di[['(2)']] <- effects_dsdm2
+mod_dsdm_eff_inv_di[['(3)']] <- effects_dsdm3
+mod_dsdm_eff_inv_di[['(4)']] <- effects_dsdm4
+
+
+modelsummary(mod_dsdm_eff_inv_di, 
+             output = 'latex',
+             stars = TRUE,
+             title = 'Прямые и косвенные эффекты капитала НИОКР на
+             реальный ВРП в динамической пространственной модели Дарбина.')
+
+
+
+### СПЕЦИФИКАЦИИ С МАТРИЦЕЙ ОБЩИХ ГРАНИЦ ======================================
+
+
+# Пространственные веса, рассчитанные в R ранее
+contig_matrix <- read_excel('Contig_matrix.xlsx', 
+                            range = 'B1:BY77') %>% as.matrix()
+
+contig_matrix_rob <- read_excel('Contig_matrix_rob.xlsx', 
+                                range = 'B1:BW75') %>% as.matrix()
+
+
+
+## Спецификация с СПб и Москвой, но без FDI ------------------------------------
+
+grp_reg      <-  df_no_fdi_76$grp
+rd_reg       <-  df_no_fdi_76$rd_l
+capital_reg  <-  df_no_fdi_76$capital_l
+labor_reg    <-  df_no_fdi_76$labor_l
+humcap_reg   <-  df_no_fdi_76$humcap_l
+export_reg   <-  df_no_fdi_76$export_l
+import_reg   <-  df_no_fdi_76$import_l
+
+formula_no_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+humcap_reg + log(export_reg + 1) + log(import_reg + 1)
+
+dsdm5 <- SDPDm(formula = formula_no_fdi, 
+               data = df_no_fdi_76, 
+               W = contig_matrix,
+               index = c('region', 'year'),
+               model = 'sdm',
+               effect = 'twoways',
+               LYtrans = TRUE,
+               dynamic = TRUE,
+               tlaginfo = list(ind = NULL, tl = TRUE, stl = TRUE))
+summary(dsdm5)
+
+dsdm5_res <- get_res_of_sdm(dsdm5, df_no_fdi_76, names_dsdm_no_fdi)
+
+
+## Спецификация с СПб и Москвой и с FDI -----------------------------------
+
+
+grp_reg      <-  df_with_fdi_76$grp
+rd_reg       <-  df_with_fdi_76$rd_l
+capital_reg  <-  df_with_fdi_76$capital_l
+labor_reg    <-  df_with_fdi_76$labor_l
+humcap_reg   <-  df_with_fdi_76$humcap_l
+export_reg   <-  df_with_fdi_76$export_l
+import_reg   <-  df_with_fdi_76$import_l
+fdi_reg      <-  df_with_fdi_76$fdi_l
+
+formula_with_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
+log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
+
+dsdm6 <- SDPDm(formula = formula_with_fdi, 
+               data = df_with_fdi_76, 
+               W = contig_matrix,
+               index = c('region', 'year'),
+               model = 'sdm',
+               effect = 'twoways',
+               LYtrans = TRUE,
+               dynamic = TRUE,
+               tlaginfo = list(ind = NULL, tl = TRUE, stl = TRUE))
+summary(dsdm6)
+
+dsdm6_res <- get_res_of_sdm(dsdm6, df_with_fdi_76, names_dsdm_with_fdi)
+
+
+## Спецификация без СПб и Москвы и без FDI -----------------------------
+
+
+grp_reg      <-  df_no_fdi_74$grp
+rd_reg       <-  df_no_fdi_74$rd_l
+capital_reg  <-  df_no_fdi_74$capital_l
+labor_reg    <-  df_no_fdi_74$labor_l
+humcap_reg   <-  df_no_fdi_74$humcap_l
+export_reg   <-  df_no_fdi_74$export_l
+import_reg   <-  df_no_fdi_74$import_l
+
+formula_no_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+humcap_reg + log(export_reg + 1) + log(import_reg + 1)
+
+dsdm7 <- SDPDm(formula = formula_no_fdi, 
+               data = df_no_fdi_74, 
+               W = contig_matrix_rob,
+               index = c('region', 'year'),
+               model = 'sdm',
+               effect = 'twoways',
+               LYtrans = TRUE,
+               dynamic = TRUE,
+               tlaginfo = list(ind = NULL, tl = TRUE, stl = TRUE))
+summary(dsdm7)
+
+dsdm7_res <- get_res_of_sdm(dsdm7, df_no_fdi_74, names_dsdm_no_fdi)
+
+
+## Спецификация без СПб и Москвы, но с FDI ----------------------------
+
+
+grp_reg      <-  df_with_fdi_74$grp
+rd_reg       <-  df_with_fdi_74$rd_l
+capital_reg  <-  df_with_fdi_74$capital_l
+labor_reg    <-  df_with_fdi_74$labor_l
+humcap_reg   <-  df_with_fdi_74$humcap_l
+export_reg   <-  df_with_fdi_74$export_l
+import_reg   <-  df_with_fdi_74$import_l
+fdi_reg      <-  df_with_fdi_74$fdi_l
+
+formula_with_fdi <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+humcap_reg + log(export_reg + 1) + log(import_reg + 1) + 
+log(fdi_reg + 0.5 * min(fdi_reg[fdi_reg > 0]))
+
+dsdm8 <- SDPDm(formula = formula_with_fdi, 
+               data = df_with_fdi_74, 
+               W = contig_matrix_rob,
+               index = c('region', 'year'),
+               model = 'sdm',
+               effect = 'twoways',
+               LYtrans = TRUE,
+               dynamic = TRUE,
+               tlaginfo = list(ind = NULL, tl = TRUE, stl = TRUE))
+summary(dsdm8)
+
+dsdm8_res <- get_res_of_sdm(dsdm8, df_with_fdi_74, names_dsdm_with_fdi)
+
+
+## Представление результатов в одной таблице -----------------------------
+
+
+mod_dsdm_cont = list()
+
+mod_dsdm_cont[['(5)']] <- dsdm5_res
+mod_dsdm_cont[['(6)']] <- dsdm6_res
+mod_dsdm_cont[['(7)']] <- dsdm7_res
+mod_dsdm_cont[['(8)']] <- dsdm8_res
+
+
+modelsummary(mod_dsdm_cont, 
+             output = 'latex',
+             stars = TRUE,
+             title = 'Динамическая пространственная модель Дарбина. Метод оценки - квази-ММП.',
+             coef_map = c('L1.log(grp)',
+                          'SpL.L1.log(grp)', 
+                          'log(R&D)', 
+                          'log(Capital)', 
+                          'log(Labor)', 
+                          'humcap', 
+                          'log(Export)', 
+                          'log(Import)', 
+                          'log(FDI)', 
+                          'SpL.log(R&D)',
+                          'SpL.log(grp)'))
+
+
+## Прямые и косвенные эффекты в динамической модели Дарбина -------------------------------------------------------------
+
+
+effects_dsdm5 <- get_dsdm_effects(dsdm5)
+effects_dsdm6 <- get_dsdm_effects(dsdm6)
+effects_dsdm7 <- get_dsdm_effects(dsdm7)
+effects_dsdm8 <- get_dsdm_effects(dsdm8)
+
+
+mod_dsdm_eff_cont = list()
+
+mod_dsdm_eff_cont[['(5)']] <- effects_dsdm5
+mod_dsdm_eff_cont[['(6)']] <- effects_dsdm6
+mod_dsdm_eff_cont[['(7)']] <- effects_dsdm7
+mod_dsdm_eff_cont[['(8)']] <- effects_dsdm8
+
+
+modelsummary(mod_dsdm_eff_cont, 
+             output = 'latex',
+             stars = TRUE,
+             title = 'Прямые и косвенные эффекты капитала НИОКР на реальный ВРП 
+             в динамической пространственной модели Дарбина.')
