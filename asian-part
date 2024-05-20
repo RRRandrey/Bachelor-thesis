@@ -1,0 +1,51 @@
+## Создание матрицы обратных расстояний с помощью Python
+# ======================================================
+
+# В этом файле я показываю, как получить данные о регионах 
+# Азиатской частей Россиии
+
+
+## Библиотеки
+# ======================================================
+
+import pandas as pd
+import numpy as np
+import requests as rq
+import re
+
+from bs4 import BeautifulSoup
+
+## Обработка запроса
+# ======================================================
+
+url = 'https://ru.wikipedia.org/wiki/Европейская_часть_России'
+
+response = rq.get(url)
+response
+
+soup = BeautifulSoup(response.text, 'html.parser')
+
+## Создание списка
+# ======================================================
+
+cities = []
+for tag in soup.find_all('a'):
+  cities.append(tag.text)
+
+cities = cities[cities.index('Белгородская область'):]
+cities = cities[:(cities.index('Чувашская Республика') + 1)]
+
+r = re.compile('.+область|Республика|.+Республика|Москва|Санкт-Петербург|.+край')
+cities_new = list(filter(r.match, cities))
+cities_new = list(dict.fromkeys(cities_new))
+cities_new.pop(28)
+cities_new
+
+## Создание датафрейма и экспорт
+# ======================================================
+
+eur_reg = pd.DataFrame({'Region': cities_new, 'Is_Asia': [0]*len(cities_new)})
+eur_reg
+
+eur_reg.to_excel(r'/content/eur_regions.xlsx')
+
