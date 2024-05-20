@@ -19,8 +19,8 @@ library(modelsummary)
 ### ОЮРАБОТАННЫЕ ДАННЫЕ ========================================================
 
 path <- 'C:/Users/Администратор/Downloads/'
-
 setwd(path)
+
 
 df_no_fdi_76 <- read_excel('df_no_fdi_76.xlsx', 
                            col_types = c('text', 
