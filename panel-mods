@@ -1,0 +1,507 @@
+#===============================================================================
+#                             ПАНЕЛЬНЫЕ МОДЕЛИ 
+#===============================================================================
+
+
+# С помощью этого кода я оцениваю модель с фиксированными и случайными эффектами,
+# а также модель без эффектов
+
+
+### ПАКЕТЫ =====================================================================
+
+
+library(readxl)
+library(tidyverse)
+
+library(plm)
+library(sandwich)
+library(lmtest)
+
+library(modelsummary)
+
+
+### ОБРАБОТАННЫЕ ДАННЫЕ ========================================================
+
+
+path <- 'C:/Users/Администратор/Downloads/'
+setwd(path)
+
+
+df_no_FDI_76 <- read_excel('df_no_FDI_76.xlsx', 
+                           col_types = c('text', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric'))
+
+
+df_with_FDI_76 <- read_excel('df_with_FDI_76.xlsx', 
+                          col_types = c('text', 
+                                        'numeric', 'numeric', 'numeric', 
+                                        'numeric', 'numeric', 'numeric', 
+                                        'numeric', 'numeric', 'numeric', 
+                                        'numeric', 'numeric', 'numeric', 
+                                        'numeric', 'numeric', 'numeric', 
+                                        'numeric', 'numeric'))
+
+df_no_FDI_74 <- read_excel('df_no_FDI_74.xlsx', 
+                                    col_types = c('text', 
+                                                  'numeric', 'numeric', 'numeric', 
+                                                  'numeric', 'numeric', 'numeric', 
+                                                  'numeric', 'numeric', 'numeric', 
+                                                  'numeric', 'numeric', 'numeric', 
+                                                  'numeric', 'numeric', 'numeric'))
+
+df_with_FDI_74 <- read_excel('df_with_FDI_74.xlsx', 
+                                      col_types = c('text', 
+                                                    'numeric', 'numeric', 'numeric', 
+                                                    'numeric', 'numeric', 'numeric', 
+                                                    'numeric', 'numeric', 'numeric', 
+                                                    'numeric', 'numeric', 'numeric', 
+                                                    'numeric', 'numeric', 'numeric', 
+                                                    'numeric', 'numeric')) 
+
+
+
+### РЕГРЕССИИ С ФИКСИРОВАННЫМИ ЭФФЕКТАМИ =======================================
+
+
+## Спецификация с СПб и Москвой, но без FDI ------------------------------------
+
+
+grp_reg      <-  df_no_FDI_76$GRP
+rd_reg       <-  df_no_FDI_76$RD_lag
+capital_reg  <-  df_no_FDI_76$Capital_lag
+labor_reg    <-  df_no_FDI_76$Labor_lag
+humcap_reg   <-  df_no_FDI_76$HumCap_lag
+Export_reg   <-  df_no_FDI_76$Export_lag
+Import_reg   <-  df_no_FDI_76$Import_lag
+
+
+formula_no_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
+  log(labor_reg) + humcap_reg + log(Export_reg + 1) + log(Import_reg + 1)
+
+
+fe1 <- plm(formula_no_FDI,
+           effect = 'twoways',
+           model = 'within',
+           index = c('region', 'year'),
+           data = df_no_FDI_76)
+
+
+cov1fe <- vcovHC(fe1, type = 'HC3')
+coeftest(fe1, df = Inf, vcov = cov1fe)
+
+
+
+## Спецификация с СПб и Москвой и с FDI ----------------------------------------
+
+
+grp_reg      <-  df_with_FDI_76$GRP
+rd_reg       <-  df_with_FDI_76$RD_lag
+capital_reg  <-  df_with_FDI_76$Capital_lag
+labor_reg    <-  df_with_FDI_76$Labor_lag
+humcap_reg   <-  df_with_FDI_76$HumCap_lag
+Export_reg   <-  df_with_FDI_76$Export_lag
+Import_reg   <-  df_with_FDI_76$Import_lag
+FDI_reg      <-  df_with_FDI_76$FDI_lag
+
+
+formula_with_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+  humcap_reg + log(Export_reg + 1) + log(Import_reg + 1) + 
+  log(FDI_reg + 0.5*min(FDI_reg[FDI_reg>0]))
+
+
+fe2 <- plm(formula_with_FDI, 
+           effect = 'twoways',
+           model = 'within',
+           index = c('region', 'year'),
+           data = df_with_FDI_76)
+
+
+cov2fe <- vcovHC(fe2, type = 'HC3')
+coeftest(fe2, df = Inf, vcov = cov2fe)
+
+
+
+## Спецификация без СПб и Москвы и без FDI -------------------------------------
+
+
+grp_reg      <-  df_no_FDI_74$GRP
+rd_reg       <-  df_no_FDI_74$RD_lag
+capital_reg  <-  df_no_FDI_74$Capital_lag
+labor_reg    <-  df_no_FDI_74$Labor_lag
+humcap_reg   <-  df_no_FDI_74$HumCap_lag
+Export_reg   <-  df_no_FDI_74$Export_lag
+Import_reg   <-  df_no_FDI_74$Import_lag
+
+
+formula_no_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
+  log(labor_reg) + humcap_reg + log(Export_reg + 1) + log(Import_reg + 1)
+
+
+fe3 <- plm(formula_no_FDI,
+           effect = 'twoways',
+           model = 'within',
+           index = c('region', 'year'),
+           data = df_no_FDI_74)
+
+
+cov3fe <- vcovHC(fe3, type = 'HC3')
+coeftest(fe3, df = Inf, vcov = cov3fe)
+
+
+
+## Спецификация без СПб и Москвы, но с FDI -------------------------------------
+
+
+grp_reg      <-  df_with_FDI_74$GRP
+rd_reg       <-  df_with_FDI_74$RD_lag
+capital_reg  <-  df_with_FDI_74$Capital_lag
+labor_reg    <-  df_with_FDI_74$Labor_lag
+humcap_reg   <-  df_with_FDI_74$HumCap_lag
+Export_reg   <-  df_with_FDI_74$Export_lag
+Import_reg   <-  df_with_FDI_74$Import_lag
+FDI_reg      <-  df_with_FDI_74$FDI_lag
+
+
+formula_with_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+  humcap_reg + log(Export_reg + 1) + log(Import_reg + 1) + 
+  log(FDI_reg + 0.5*min(FDI_reg[FDI_reg>0]))
+
+
+fe4 <- plm(formula_with_FDI,
+           effect = 'twoways',
+           model = 'within',
+           index = c('region', 'year'),
+           data = df_with_FDI_74)
+
+
+cov4fe <- vcovHC(fe4, type = 'HC3')
+coeftest(fe4, df = Inf, vcov = cov4fe)
+
+
+
+## Представление результатов в одной таблице -----------------------------------
+
+
+models_fe <- list()
+
+models_fe[['(1)']] <- fe1
+models_fe[['(2)']] <- fe2
+models_fe[['(3)']] <- fe3
+models_fe[['(4)']] <- fe4
+
+
+
+modelsummary(models_fe, 
+             output = 'latex',
+             vcov = c('HC3', 'HC3', 'HC3', 'HC3'),
+             coef_map = c('(Intercept)' = 'Константа', 
+                          'log(rd_reg)' = 'log(R&D)', 
+                          'log(capital_reg)' = 'log(Capital)',
+                          'log(labor_reg)' = 'log(Labor)', 
+                          'labor_reg' = 'HumCap', 
+                          'log(Export_reg + 1)' = 'log(Export)',
+                          'log(Import_reg + 1)' = 'log(Import)', 
+                          'log(FDI_reg + 0.5 * min(FDI_reg[FDI_reg > 0]))' = 'log(FDI)'),
+             stars = TRUE,
+             title = 'Регрессия с фиксированными эффектами. Метод оценки - two-way within estimator', 
+             gof_omit = 'IC|RMSE|R2')
+
+
+
+
+### РЕГРЕССИИ СО СЛУЧАЙНЫМИ ЭФФЕКТАМИ ==========================================
+
+
+## Спецификация с СПб и Москвой, но без FDI ------------------------------------
+
+
+grp_reg      <-  df_no_FDI_76$GRP
+rd_reg       <-  df_no_FDI_76$RD_lag
+capital_reg  <-  df_no_FDI_76$Capital_lag
+labor_reg    <-  df_no_FDI_76$Labor_lag
+humcap_reg   <-  df_no_FDI_76$HumCap_lag
+Export_reg   <-  df_no_FDI_76$Export_lag
+Import_reg   <-  df_no_FDI_76$Import_lag
+
+
+formula_no_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
+  log(labor_reg) + humcap_reg + log(Export_reg + 1) + log(Import_reg + 1)
+
+
+re1 <- plm(formula_no_FDI,
+           effect = 'twoways',
+           model = 'random',
+           index = c('region', 'year'),
+           data = df_no_FDI_76)
+
+
+cov1re <- vcovHC(re1, type = 'HC3')
+coeftest(re1, df = Inf, vcov = cov1re)
+
+
+
+## Спецификация с СПб и Москвой и с FDI ----------------------------------------
+
+
+grp_reg      <-  df_with_FDI_76$GRP
+rd_reg       <-  df_with_FDI_76$RD_lag
+capital_reg  <-  df_with_FDI_76$Capital_lag
+labor_reg    <-  df_with_FDI_76$Labor_lag
+humcap_reg   <-  df_with_FDI_76$HumCap_lag
+Export_reg   <-  df_with_FDI_76$Export_lag
+Import_reg   <-  df_with_FDI_76$Import_lag
+FDI_reg      <-  df_with_FDI_76$FDI_lag
+
+
+formula_with_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+  humcap_reg + log(Export_reg + 1) + log(Import_reg + 1) + 
+  log(FDI_reg + 0.5*min(FDI_reg[FDI_reg>0]))
+
+
+re2 <- plm(formula_with_FDI, 
+           effect = 'twoways',
+           model = 'random',
+           index = c('region', 'year'),
+           data = df_with_FDI_76)
+
+
+cov2re <- vcovHC(re2, type = 'HC3')
+coeftest(re2, df = Inf, vcov = cov2re)
+
+
+
+## Спецификация без СПб и Москвы и без FDI -------------------------------------
+
+
+grp_reg      <-  df_no_FDI_74$GRP
+rd_reg       <-  df_no_FDI_74$RD_lag
+capital_reg  <-  df_no_FDI_74$Capital_lag
+labor_reg    <-  df_no_FDI_74$Labor_lag
+humcap_reg   <-  df_no_FDI_74$HumCap_lag
+Export_reg   <-  df_no_FDI_74$Export_lag
+Import_reg   <-  df_no_FDI_74$Import_lag
+
+
+formula_no_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
+  log(labor_reg) + humcap_reg + log(Export_reg + 1) + log(Import_reg + 1)
+
+
+re3 <- plm(formula_no_FDI,
+           effect = 'twoways',
+           model = 'random',
+           index = c('region', 'year'),
+           data = df_no_FDI_74)
+
+
+cov3re <- vcovHC(re3, type = 'HC3')
+coeftest(re3, df = Inf, vcov = cov3re)
+
+
+
+## Спецификация без СПб и Москвы, но с FDI -------------------------------------
+
+
+grp_reg      <-  df_with_FDI_74$GRP
+rd_reg       <-  df_with_FDI_74$RD_lag
+capital_reg  <-  df_with_FDI_74$Capital_lag
+labor_reg    <-  df_with_FDI_74$Labor_lag
+humcap_reg   <-  df_with_FDI_74$HumCap_lag
+Export_reg   <-  df_with_FDI_74$Export_lag
+Import_reg   <-  df_with_FDI_74$Import_lag
+FDI_reg      <-  df_with_FDI_74$FDI_lag
+
+
+formula_with_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+  humcap_reg + log(Export_reg + 1) + log(Import_reg + 1) + 
+  log(FDI_reg + 0.5*min(FDI_reg[FDI_reg>0]))
+
+
+re4 <- plm(formula_with_FDI,
+           effect = 'twoways',
+           model = 'random',
+           index = c('region', 'year'),
+           data = df_with_FDI_74)
+
+
+cov4re <- vcovHC(re4, type = 'HC3')
+coeftest(re4, df = Inf, vcov = cov4re)
+
+
+
+## Представление результатов в одной таблице -----------------------------------
+
+
+models_re = list()
+
+models_re[['(1)']] <- re1
+models_re[['(2)']] <- re2
+models_re[['(3)']] <- re3
+models_re[['(4)']] <- re4
+
+
+
+modelsummary(models_re, 
+             output = 'latex',
+             vcov = c('HC3', 'HC3', 'HC3', 'HC3'),
+             coef_map = c('log(rd_reg)' = 'log(R&D)', 
+                          'log(capital_reg)' = 'log(Capital)',
+                          'log(labor_reg)' = 'log(Labor)', 
+                          'labor_reg' = 'HumCap', 
+                          'log(Export_reg + 1)' = 'log(Export)',
+                          'log(Import_reg + 1)' = 'log(Import)', 
+                          'log(FDI_reg + 0.5 * min(FDI_reg[FDI_reg > 0]))' = 'log(FDI)'),
+             stars = TRUE,
+             title = 'Регрессия со случайными. 
+             Метод оценки - random effects estimator', 
+             gof_omit = 'IC|RMSE|R2')
+
+
+
+
+### РЕГРЕССИИ БЕЗ ЭФФЕКТОВ =====================================================
+
+
+## Спецификация с СПб и Москвой, но без FDI ------------------------------------
+
+
+grp_reg      <-  df_no_FDI_76$GRP
+rd_reg       <-  df_no_FDI_76$RD_lag
+capital_reg  <-  df_no_FDI_76$Capital_lag
+labor_reg    <-  df_no_FDI_76$Labor_lag
+humcap_reg   <-  df_no_FDI_76$HumCap_lag
+Export_reg   <-  df_no_FDI_76$Export_lag
+Import_reg   <-  df_no_FDI_76$Import_lag
+
+
+formula_no_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
+  log(labor_reg) + humcap_reg + log(Export_reg + 1) + log(Import_reg + 1)
+
+
+pool1 <- plm(formula_no_FDI,
+             model = 'pooling',
+             index = c('region', 'year'),
+             data = df_no_FDI_76)
+
+
+cov1pool <- vcovHC(pool1, type = 'HC3')
+coeftest(pool1, df = Inf, vcov = cov1pool)
+
+
+
+## Спецификация с СПб и Москвой и с FDI ----------------------------------------
+
+
+grp_reg      <-  df_with_FDI_76$GRP
+rd_reg       <-  df_with_FDI_76$RD_lag
+capital_reg  <-  df_with_FDI_76$Capital_lag
+labor_reg    <-  df_with_FDI_76$Labor_lag
+humcap_reg   <-  df_with_FDI_76$HumCap_lag
+Export_reg   <-  df_with_FDI_76$Export_lag
+Import_reg   <-  df_with_FDI_76$Import_lag
+FDI_reg      <-  df_with_FDI_76$FDI_lag
+
+
+formula_with_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+  humcap_reg + log(Export_reg + 1) + log(Import_reg + 1) + 
+  log(FDI_reg + 0.5*min(FDI_reg[FDI_reg>0]))
+
+
+pool2 <- plm(formula_with_FDI,
+             model = 'pooling',
+             index = c('region', 'year'),
+             data = df_with_FDI_76)
+
+
+cov2pool <- vcovHC(pool2, type = 'HC3')
+coeftest(pool2, df = Inf, vcov = cov2pool)
+
+
+
+## Спецификация без СПб и Москвы и без FDI -------------------------------------
+
+
+grp_reg      <-  df_no_FDI_74$GRP
+rd_reg       <-  df_no_FDI_74$RD_lag
+capital_reg  <-  df_no_FDI_74$Capital_lag
+labor_reg    <-  df_no_FDI_74$Labor_lag
+humcap_reg   <-  df_no_FDI_74$HumCap_lag
+Export_reg   <-  df_no_FDI_74$Export_lag
+Import_reg   <-  df_no_FDI_74$Import_lag
+
+
+formula_no_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + 
+  log(labor_reg) + humcap_reg + log(Export_reg + 1) + log(Import_reg + 1)
+
+
+pool3 <- plm(formula_no_FDI,
+             model = 'pooling',
+             index = c('region', 'year'),
+             data = df_no_FDI_74)
+
+
+cov3pool <- vcovHC(pool3, type = 'HC3')
+coeftest(pool3, df = Inf, vcov = cov3pool)
+
+
+
+## Спецификация без СПб и Москвы, но с FDI -------------------------------------
+
+
+grp_reg      <-  df_with_FDI_74$GRP
+rd_reg       <-  df_with_FDI_74$RD_lag
+capital_reg  <-  df_with_FDI_74$Capital_lag
+labor_reg    <-  df_with_FDI_74$Labor_lag
+humcap_reg   <-  df_with_FDI_74$HumCap_lag
+Export_reg   <-  df_with_FDI_74$Export_lag
+Import_reg   <-  df_with_FDI_74$Import_lag
+FDI_reg      <-  df_with_FDI_74$FDI_lag
+
+
+formula_with_FDI <- log(grp_reg) ~ log(rd_reg) + log(capital_reg) + log(labor_reg) + 
+  humcap_reg + log(Export_reg + 1) + log(Import_reg + 1) + 
+  log(FDI_reg + 0.5*min(FDI_reg[FDI_reg>0]))
+
+
+pool4 <- plm(formula_with_FDI,
+             model = 'pooling',
+             index = c('region', 'year'),
+             data = df_with_FDI_74)
+
+
+cov4pool <- vcovHC(pool4, type = 'HC3')
+coeftest(pool4, df = Inf, vcov = cov4pool)
+
+
+
+## Представление результатов в одной таблице -----------------------------------
+
+
+models_pool = list()
+
+models_pool[['(1)']] <- pool1
+models_pool[['(2)']] <- pool2
+models_pool[['(3)']] <- pool3
+models_pool[['(4)']] <- pool4
+
+
+
+modelsummary(models_pool, 
+             output = 'latex',
+             vcov = c('HC3', 'HC3', 'HC3', 'HC3'),
+             coef_map = c('log(rd_reg)' = 'log(R&D)', 
+                          'log(capital_reg)' = 'log(Capital)',
+                          'log(labor_reg)' = 'log(Labor)', 
+                          'labor_reg' = 'HumCap', 
+                          'log(Export_reg + 1)' = 'log(Export)',
+                          'log(Import_reg + 1)' = 'log(Import)', 
+                          'log(FDI_reg + 0.5 * min(FDI_reg[FDI_reg > 0]))' = 'log(FDI)'),
+             stars = TRUE,
+             title = 'Регрессия без эффектов. 
+             Метод оценки - pooled regression estimator', 
+             gof_omit = 'IC|RMSE|R2')
+
+rm(list = ls())
