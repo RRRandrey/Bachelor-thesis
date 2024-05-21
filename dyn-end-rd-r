@@ -1,0 +1,689 @@
+#===============================================================================
+#            ДИНАМИЧЕСКАЯ МОДЕЛЬ С ЭНДОГЕННОЙ ПЕРЕМЕННОЙ ИНТЕРЕСА
+#===============================================================================
+
+
+# С помощью этого кода я оцениваю динамические модели с эндогенной переменной интереса
+# системным обобщенным методом моментов
+
+
+### ПАКЕТЫ =====================================================================
+
+
+library(readxl)
+library(tidyverse)
+library(pdynmc)
+library(modelsummary)
+
+
+
+### ОБРАБОТАННЫЕ ДАННЫЕ ========================================================
+
+path <- 'C:/Users/Администратор/Downloads/'
+
+setwd(path)
+
+
+df_no_fdi_76 <- read_excel('df_no_fdi_76_ext.xlsx', 
+                           col_types = c('text', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric'))
+
+
+df_with_fdi_76 <- read_excel('df_with_fdi_76_ext.xlsx', 
+                             col_types = c('text', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric',
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric'))
+
+
+df_no_fdi_74 <- read_excel('df_no_fdi_74_ext.xlsx', 
+                           col_types = c('text', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric', 
+                                         'numeric', 'numeric', 'numeric'))
+
+
+df_with_fdi_74 <- read_excel('df_with_fdi_74_ext.xlsx', 
+                             col_types = c('text', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric',
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric', 'numeric', 'numeric', 
+                                           'numeric')) 
+
+
+
+## Логарифмы -------------------------------------------------------------------
+
+
+for (i in list('grp', 'rd_l', 'capital_l', 'labor_l')){
+  df_no_fdi_76[i] <- log(df_no_fdi_76[i])
+}
+
+for (i in list('grp', 'rd_l', 'capital_l', 'labor_l')){
+  df_with_fdi_76[i] <- log(df_with_fdi_76[i])
+}
+
+for (i in list('grp', 'rd_l', 'capital_l', 'labor_l')){
+  df_no_fdi_74[i] <- log(df_no_fdi_74[i])
+}
+
+for (i in list('grp', 'rd_l', 'capital_l', 'labor_l')){
+  df_with_fdi_74[i] <- log(df_with_fdi_74[i])
+}
+
+
+
+for (i in list('import_l', 'export_l')){
+  df_no_fdi_76[i] <- log(df_no_fdi_76[i] + 1)
+}
+
+for (i in list('import_l', 'export_l')){
+  df_with_fdi_76[i] <- log(df_with_fdi_76[i] + 1)
+}
+
+for (i in list('import_l', 'export_l')){
+  df_no_fdi_74[i] <- log(df_no_fdi_74[i] + 1)
+}
+
+for (i in list('import_l', 'export_l')){
+  df_with_fdi_74[i] <- log(df_with_fdi_74[i] + 1)
+}
+
+
+
+
+df_with_fdi_76$fdi_l <- log(df_with_fdi_76$fdi_l + 
+                                0.5 * min(df_with_fdi_76$fdi_l[df_with_fdi_76$fdi_l > 0]))
+
+df_with_fdi_74$fdi_l <- log(df_with_fdi_74$fdi_l + 
+                                0.5 * min(df_with_fdi_74$fdi_l[df_with_fdi_74$fdi_l > 0]))
+
+
+
+
+## Функция, которая выдаст результаты ------------------------------------------
+
+
+sGMM <- function(data,ex){
+  dyn <-  pdynmc(data, 
+                 varname.i = 'region', varname.t = 'year',
+                 use.mc.diff = TRUE, use.mc.lev = TRUE,
+                 use.mc.nonlin = FALSE,
+                 include.y = TRUE, varname.y = 'grp',
+                 lTerms.y = 1, include.x = TRUE, maxls.y = 2,
+                 
+                 varname.reg.end = c('rd_l'),
+                 
+                 lTerms.reg.end = c(0),
+                 maxls.reg.end = c(2),
+                 fur.con = TRUE,
+                 varname.reg.fur = ex,
+                 
+                 lTerms.reg.fur = c(rep(0, length(ex))),
+                 
+                 include.dum = TRUE,
+                 fur.con.diff = TRUE, fur.con.lev = TRUE,
+                 dum.diff = FALSE, dum.lev = TRUE,
+                 
+                 varname.dum = 'year',
+                 w.mat.stata = TRUE,
+                 std.err = 'corrected',
+                 estimation = 'onestep',
+                 opt.meth = 'none')
+  
+  return(dyn)
+}
+
+
+
+### СПЕЦИФИКАЦИИ С МАТРИЦЕЙ ОБРАТНЫХ РАССТОЯНИЙ ================================
+
+
+## Спецификация с СПб и Москвой, но без FDI ------------------------------------
+
+
+
+dyn1 <- sGMM(df_no_fdi_76, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                             'import_l', 'rd_sp_l_inv', 'cap_sp_l_inv', 
+                             'lab_sp_l_inv', 'exp_sp_l_inv', 
+                             'imp_sp_l_inv', 'hum_sp_l_inv'))
+summary(dyn1)
+
+
+## Спецификация с СПб и Москвой и с FDI ----------------------------------------
+
+
+
+dyn2 <- sGMM(df_with_fdi_76, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                               'import_l', 'rd_sp_l_inv', 'fdi_l', 'cap_sp_l_inv', 
+                               'lab_sp_l_inv', 'exp_sp_l_inv', 'imp_sp_l_inv', 
+                               'hum_sp_l_inv', 'fdi_sp_l_inv'))
+
+summary(dyn2)
+
+
+
+## Спецификация без СПб и Москвы и без FDI -------------------------------------
+
+
+dyn3 <- sGMM(df_no_fdi_74, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                             'import_l', 'rd_sp_l_inv', 'cap_sp_l_inv', 
+                             'lab_sp_l_inv', 'exp_sp_l_inv', 'imp_sp_l_inv', 
+                             'hum_sp_l_inv'))
+
+summary(dyn3)
+
+
+## Спецификация без СПб и Москвы, но с FDI -------------------------------------
+
+
+dyn4 <- sGMM(df_with_fdi_74, c('capital_l', 'labor_l', 'humcap_l', 'export_l', 
+                               'import_l', 'fdi_l', 'rd_sp_l_inv', 'cap_sp_l_inv', 
+                               'lab_sp_l_inv', 'exp_sp_l_inv', 'imp_sp_l_inv',
+                               'hum_sp_l_inv', 'fdi_sp_l_inv'))
+
+summary(dyn4)
+
+
+
+
+
+
+## Оформление результатов ------------------------------------------------------
+
+
+get_res <- function(model, data, names){
+  
+  res <- data.frame(model$coefficients, 
+                    model$stderr$step1, model$zvalue$step1, 
+                    model$pvalue$step1)
+  
+  res <- filter(res, nchar(rownames(res)) > 4)
+  
+  res$name <- names
+  
+  names(res) <- c('estimate', 
+                  'std.error', 't-value', 
+                  'p.value', 'term')
+  
+  rownames(res) <- NULL
+  
+  
+  obs <- nrow(data)
+  ins <- ninst(model)
+  ar1test <- mtest.fct(model, order = 1)$p.value # Н0: нет автокорреляции
+  ar2test <- mtest.fct(model, order = 2)$p.value # Н0: нет автокорреляции
+  jtest <- jtest.fct(model)$p.value  # Н0: инструменты валидны
+  
+  
+  res <- list(tidy = res, 
+              glance = data.frame('Наблюдений' = obs, 
+                                  'Инструментов' = sum(ins[1:2]),
+                                  'AR(1) p-value' = round(ar1test, 3),
+                                  'AR(2) p-value' = round(ar2test, 3),
+                                  'J-тест p-value' = round(jtest, 3)))
+  
+  class(res) <- 'modelsummary_list'
+  
+  
+  return(res)
+}
+
+
+names_no_fdi <- c('L1.log(grp)', 'log(R&D)', 
+                  'log(capital)', 'log(labor)', 
+                  'humcap', 'log(export)', 
+                  'log(import)', 'SpL.log(R&D)', 
+                  'SpL.log(capital)', 'SpL.log(labor)', 
+                  'SpL.log(export)', 'SpL.log(import)',
+                  'SpL.humcap')   
+
+
+names_with_fdi <- c('L1.log(grp)', 'log(R&D)', 
+                    'log(capital)', 'log(labor)', 
+                    'humcap', 'log(export)', 
+                    'log(import)', 'log(FDI)',
+                    'SpL.log(R&D)', 'SpL.log(capital)', 
+                    'SpL.log(labor)', 'SpL.log(export)', 
+                    'SpL.log(import)', 'SpL.log(FDI)',
+                    'SpL.humcap')   
+
+
+dyn1_res <- get_res(dyn1, df_no_fdi_76, names_no_fdi)
+dyn2_res <- get_res(dyn2, df_with_fdi_76, names_with_fdi)
+dyn3_res <- get_res(dyn3, df_no_fdi_74, names_no_fdi)
+dyn4_res <- get_res(dyn4, df_with_fdi_74, names_with_fdi)
+
+
+dyn_inv_models <- list()
+
+
+dyn_inv_models[['(1)']] <- dyn1_res
+dyn_inv_models[['(2)']] <- dyn2_res
+dyn_inv_models[['(3)']] <- dyn3_res
+dyn_inv_models[['(4)']] <- dyn4_res
+
+
+modelsummary(dyn_inv_models, 
+             output = 'latex',
+             stars = TRUE,
+             title = 'Динамическая модель пространственного лага 
+             объясняющих переменных. Метод оценки - системный ОММ',
+             coef_map = c('L1.log(GRP)',
+                          'log(R&D)', 
+                          'log(Capital)', 
+                          'log(Labor)', 
+                          'HumCap', 
+                          'log(Export)', 
+                          'log(Import)', 
+                          'log(FDI)', 
+                          'SpL.log(R&D)'))
+
+
+
+
+
+### СПЕЦИФИКАЦИИ С МАТРИЦЕЙ ОБЩИХ ГРАНИЦ (ПЕРЕКРЕСТНЫЙ ЭФФЕКТ) =================
+
+
+## Спецификация с СПб и Москвой, но без FDI ------------------------------------
+
+
+
+sGMM <- function(data,ex){
+  dyn <-  pdynmc(data, 
+                 varname.i = 'region', varname.t = 'year',
+                 use.mc.diff = TRUE, use.mc.lev = TRUE,
+                 use.mc.nonlin = FALSE,
+                 include.y = TRUE, varname.y = 'grp',
+                 lTerms.y = 1, include.x = TRUE, maxls.y = 2,
+                 
+                 varname.reg.end = c('rd_l'),
+                 
+                 lTerms.reg.end = c(0),
+                 maxls.reg.end = c(2),
+                 fur.con = TRUE,
+                 varname.reg.fur = ex,
+                 
+                 lTerms.reg.fur = c(rep(0, length(ex))),
+                 
+                 include.dum = TRUE,
+                 fur.con.diff = TRUE, fur.con.lev = TRUE,
+                 dum.diff = FALSE, dum.lev = TRUE,
+                 
+                 varname.dum = 'year',
+                 w.mat.stata = TRUE,
+                 std.err = 'corrected',
+                 estimation = 'onestep',
+                 opt.meth = 'none')
+  
+  return(dyn)
+}
+
+dyn1 <- sGMM(df_no_fdi_76, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                             'import_l', 'rd_sp_l_con', 'cap_sp_l_inv', 
+                             'lab_sp_l_con', 'exp_sp_l_con', 
+                             'imp_sp_l_con', 'hum_sp_l_con'))
+summary(dyn1)
+
+
+## Спецификация с СПб и Москвой и с FDI ----------------------------------------
+
+
+
+dyn2 <- sGMM(df_with_fdi_76, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                               'import_l', 'rd_sp_l_con', 'fdi_l', 'cap_sp_l_con', 
+                               'lab_sp_l_con', 'exp_sp_l_con', 
+                               'imp_sp_l_con', 'hum_sp_l_con', 'fdi_sp_l_con'))
+
+summary(dyn2)
+
+
+
+## Спецификация без СПб и Москвы и без FDI -------------------------------------
+
+
+dyn3 <- sGMM(df_no_fdi_74, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                             'import_l', 'rd_sp_l_con', 'cap_sp_l_inv', 
+                             'lab_sp_l_con', 'exp_sp_l_con', 
+                             'imp_sp_l_con', 'hum_sp_l_con'))
+
+summary(dyn3)
+
+
+## Спецификация без СПб и Москвы, но с FDI -------------------------------------
+
+
+dyn4 <- sGMM(df_with_fdi_74,c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                              'import_l', 'rd_sp_l_con', 'fdi_l', 'cap_sp_l_con', 
+                              'lab_sp_l_con', 'exp_sp_l_con', 
+                              'imp_sp_l_con', 'hum_sp_l_con', 
+                              'fdi_sp_l_con'))
+
+summary(dyn4)
+
+
+dyn1_res <- get_res(dyn1, df_no_fdi_76, names_no_fdi)
+dyn2_res <- get_res(dyn2, df_with_fdi_76, names_with_fdi)
+dyn3_res <- get_res(dyn3, df_no_fdi_74, names_no_fdi)
+dyn4_res <- get_res(dyn4, df_with_fdi_74, names_with_fdi)
+
+
+dyn_con_models <- list()
+
+
+dyn_con_models[['(1)']] <- dyn1_res
+dyn_con_models[['(2)']] <- dyn2_res
+dyn_con_models[['(3)']] <- dyn3_res
+dyn_con_models[['(4)']] <- dyn4_res
+
+
+modelsummary(dyn_con_models, 
+             output = 'latex',
+             stars = TRUE,
+             title = 'Динамическая модель пространственного лага 
+             объясняющих переменных. Метод оценки - системный ОММ',
+             coef_map = c('L1.log(GRP)',
+                          'log(R&D)', 
+                          'log(Capital)', 
+                          'log(Labor)', 
+                          'HumCap', 
+                          'log(Export)', 
+                          'log(Import)', 
+                          'log(FDI)', 
+                          'SpL.log(R&D)'))
+
+
+
+### СПЕЦИФИКАЦИИ С МАТРИЦЕЙ ОБРАТНЫХ РАССТОЯНИЙ (ПЕРЕКРЕСТНЫЙ ЭФФЕКТ) ==========
+
+
+## Спецификация с СПб и Москвой, но без FDI ------------------------------------
+
+
+
+dyn1 <- sGMM(df_no_fdi_76, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                             'import_l', 'rd_sp_l_inv', 'cap_sp_l_inv', 
+                             'lab_sp_l_inv', 'exp_sp_l_inv', 
+                             'imp_sp_l_inv', 'hum_sp_l_inv', 'interac_term_inv'))
+summary(dyn1)
+
+
+## Спецификация с СПб и Москвой и с FDI ----------------------------------------
+
+
+
+dyn2 <- sGMM(df_with_fdi_76, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                               'import_l', 'rd_sp_l_inv', 'fdi_l', 'cap_sp_l_inv', 
+                               'lab_sp_l_inv', 'exp_sp_l_inv', 'imp_sp_l_inv', 
+                               'hum_sp_l_inv', 'fdi_sp_l_inv', 'interac_term_inv'))
+
+summary(dyn2)
+
+
+
+## Спецификация без СПб и Москвы и без FDI -------------------------------------
+
+
+dyn3 <- sGMM(df_no_fdi_74, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                             'import_l', 'rd_sp_l_inv', 'cap_sp_l_inv', 
+                             'lab_sp_l_inv', 'exp_sp_l_inv', 'imp_sp_l_inv', 
+                             'hum_sp_l_inv', 'interac_term_inv'))
+
+summary(dyn3)
+
+
+## Спецификация без СПб и Москвы, но с FDI -------------------------------------
+
+
+dyn4 <- sGMM(df_with_fdi_74, c('capital_l', 'labor_l', 'humcap_l', 'export_l', 
+                               'import_l', 'fdi_l', 'rd_sp_l_inv', 'cap_sp_l_inv', 
+                               'lab_sp_l_inv', 'exp_sp_l_inv', 'imp_sp_l_inv',
+                               'hum_sp_l_inv', 'fdi_sp_l_inv', 'interac_term_inv'))
+
+summary(dyn4)
+
+
+
+
+
+
+## Оформление результатов ------------------------------------------------------
+
+
+get_res <- function(model, data, names){
+  
+  res <- data.frame(model$coefficients, 
+                    model$stderr$step1, model$zvalue$step1, 
+                    model$pvalue$step1)
+  
+  res <- filter(res, nchar(rownames(res)) > 4)
+  
+  res$name <- names
+  
+  names(res) <- c('estimate', 
+                  'std.error', 't-value', 
+                  'p.value', 'term')
+  
+  rownames(res) <- NULL
+  
+  
+  obs <- nrow(data)
+  ins <- ninst(model)
+  ar1test <- mtest.fct(model, order = 1)$p.value # Н0: нет автокорреляции
+  ar2test <- mtest.fct(model, order = 2)$p.value # Н0: нет автокорреляции
+  jtest <- jtest.fct(model)$p.value  # Н0: инструменты валидны
+  
+  
+  res <- list(tidy = res, 
+              glance = data.frame('Наблюдений' = obs, 
+                                  'Инструментов' = sum(ins[1:2]),
+                                  'AR(1) p-value' = round(ar1test, 3),
+                                  'AR(2) p-value' = round(ar2test, 3),
+                                  'J-тест p-value' = round(jtest, 3)))
+  
+  class(res) <- 'modelsummary_list'
+  
+  
+  return(res)
+}
+
+
+names_no_fdi <- c('L1.log(GRP)', 'log(R&D)', 
+                  'log(Capital)', 'log(Labor)', 
+                  'HumCap', 'log(Export)', 
+                  'log(Import)', 'SpL.log(R&D)', 
+                  'SpL.log(Capital)', 'SpL.log(Labor)', 
+                  'SpL.log(Export)', 'SpL.log(Import)',
+                  'SpL.HumCap', 'Int_term')   
+
+
+names_with_fdi <- c('L1.log(GRP)', 'log(R&D)', 
+                    'log(Capital)', 'log(Labor)', 
+                    'HumCap', 'log(Export)', 
+                    'log(Import)', 'log(FDI)',
+                    'SpL.log(R&D)', 'SpL.log(Capital)', 'SpL.log(Labor)', 
+                    'SpL.log(Export)', 'SpL.log(Import)', 'SpL.log(FDI)',
+                    'SpL.HumCap', 'Int_term')   
+
+
+dyn1_res <- get_res(dyn1, df_no_fdi_76, names_no_fdi)
+dyn2_res <- get_res(dyn2, df_with_fdi_76, names_with_fdi)
+dyn3_res <- get_res(dyn3, df_no_fdi_74, names_no_fdi)
+dyn4_res <- get_res(dyn4, df_with_fdi_74, names_with_fdi)
+
+
+dyn_inv_models <- list()
+
+
+dyn_inv_models[['(1)']] <- dyn1_res
+dyn_inv_models[['(2)']] <- dyn2_res
+dyn_inv_models[['(3)']] <- dyn3_res
+dyn_inv_models[['(4)']] <- dyn4_res
+
+
+modelsummary(dyn_inv_models, 
+             output = 'latex',
+             stars = TRUE,
+             title = 'Динамическая модель пространственного лага 
+             объясняющих переменных. Метод оценки - системный ОММ',
+             coef_map = c('L1.log(GRP)',
+                          'log(R&D)', 
+                          'log(Capital)', 
+                          'log(Labor)', 
+                          'HumCap', 
+                          'log(Export)', 
+                          'log(Import)', 
+                          'log(FDI)', 
+                          'SpL.log(R&D)',
+                          'Int_term'))
+
+
+
+
+
+### СПЕЦИФИКАЦИИ С МАТРИЦЕЙ ОБЩИХ ГРАНИЦ =======================================
+
+
+## Спецификация с СПб и Москвой, но без FDI ------------------------------------
+
+
+
+sGMM <- function(data,ex){
+  dyn <-  pdynmc(data, 
+                 varname.i = 'region', varname.t = 'year',
+                 use.mc.diff = TRUE, use.mc.lev = TRUE,
+                 use.mc.nonlin = FALSE,
+                 include.y = TRUE, varname.y = 'grp',
+                 lTerms.y = 1, include.x = TRUE, maxls.y = 2,
+                 
+                 varname.reg.end = c('rd_l'),
+                 
+                 lTerms.reg.end = c(0),
+                 maxls.reg.end = c(2),
+                 fur.con = TRUE,
+                 varname.reg.fur = ex,
+                 
+                 lTerms.reg.fur = c(rep(0, length(ex))),
+                 
+                 include.dum = TRUE,
+                 fur.con.diff = TRUE, fur.con.lev = TRUE,
+                 dum.diff = FALSE, dum.lev = TRUE,
+                 
+                 varname.dum = 'year',
+                 w.mat.stata = TRUE,
+                 std.err = 'corrected',
+                 estimation = 'onestep',
+                 opt.meth = 'none')
+  
+  return(dyn)
+}
+
+dyn1 <- sGMM(df_no_fdi_76, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                             'import_l', 'rd_sp_l_con', 'cap_sp_l_inv', 
+                             'lab_sp_l_con', 'exp_sp_l_con', 
+                             'imp_sp_l_con', 'hum_sp_l_con', 'interac_term_con'))
+summary(dyn1)
+
+
+## Спецификация с СПб и Москвой и с FDI ----------------------------------------
+
+
+
+dyn2 <- sGMM(df_with_fdi_76, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                               'import_l', 'rd_sp_l_con', 'fdi_l', 'cap_sp_l_con', 
+                               'lab_sp_l_con', 'exp_sp_l_con', 'imp_sp_l_con', 
+                               'hum_sp_l_con', 'fdi_sp_l_con', 'interac_term_con'))
+
+summary(dyn2)
+
+
+
+## Спецификация без СПб и Москвы и без FDI -------------------------------------
+
+
+dyn3 <- sGMM(df_no_fdi_74, c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                             'import_l', 'rd_sp_l_con', 'cap_sp_l_inv', 
+                             'lab_sp_l_con', 'exp_sp_l_con', 
+                             'imp_sp_l_con', 'hum_sp_l_con', 'interac_term_con'))
+
+summary(dyn3)
+
+
+## Спецификация без СПб и Москвы, но с FDI -------------------------------------
+
+
+dyn4 <- sGMM(df_with_fdi_74,c('capital_l', 'labor_l','humcap_l', 'export_l', 
+                              'import_l', 'rd_sp_l_con', 'fdi_l', 'cap_sp_l_con', 
+                              'lab_sp_l_con', 'exp_sp_l_con', 
+                              'imp_sp_l_con', 'hum_sp_l_con', 
+                              'fdi_sp_l_con', 'interac_term_con'))
+
+summary(dyn4)
+
+
+dyn1_res <- get_res(dyn1, df_no_fdi_76, names_no_fdi)
+dyn2_res <- get_res(dyn2, df_with_fdi_76, names_with_fdi)
+dyn3_res <- get_res(dyn3, df_no_fdi_74, names_no_fdi)
+dyn4_res <- get_res(dyn4, df_with_fdi_74, names_with_fdi)
+
+
+dyn_con_models <- list()
+
+
+dyn_con_models[['(1)']] <- dyn1_res
+dyn_con_models[['(2)']] <- dyn2_res
+dyn_con_models[['(3)']] <- dyn3_res
+dyn_con_models[['(4)']] <- dyn4_res
+
+
+modelsummary(dyn_con_models, 
+             output = 'latex',
+             stars = TRUE,
+             title = 'Динамическая модель пространственного лага 
+             объясняющих переменных. Метод оценки - системный ОММ',
+             coef_map = c('L1.log(GRP)',
+                          'log(R&D)', 
+                          'log(Capital)', 
+                          'log(Labor)', 
+                          'HumCap', 
+                          'log(Export)', 
+                          'log(Import)', 
+                          'log(FDI)', 
+                          'SpL.log(R&D)',
+                          'Int_term'))
+
+rm(list=ls())
